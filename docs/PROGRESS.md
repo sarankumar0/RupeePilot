@@ -27,10 +27,42 @@ RupeePilot/
 
 ---
 
-## What comes next — Step 2
-Set up the NestJS backend:
-- Initialise the NestJS project inside `backend/`
-- Connect to MongoDB
-- Create a health-check endpoint to verify everything works
+## Step 2 — NestJS Backend + MongoDB ✅
+**Date:** 2026-03-20
+
+### What we built
+- Initialised NestJS project inside `backend/`
+- Installed and configured `@nestjs/config` to load `.env` files
+- Installed `@nestjs/mongoose` and `mongoose` to connect to MongoDB
+- MongoDB connects automatically on server startup
+
+### Key files
+| File | What it does |
+|------|-------------|
+| `backend/src/main.ts` | Entry point — starts the server on port 3000 |
+| `backend/src/app.module.ts` | Root module — loads config and MongoDB connection |
+| `backend/src/app.controller.ts` | Handles HTTP requests |
+| `backend/src/app.service.ts` | Business logic lives here |
+| `backend/.env` | Secret config values — never committed to GitHub |
+
+### How to run
+```bash
+cd backend
+npm run start
+```
+Visit `http://localhost:3000` — should show "Hello World!"
+
+### Config files explained
+- `.env` — stores `MONGODB_URI` and `PORT`
+- `ConfigModule.forRoot({ isGlobal: true })` — makes `.env` values available everywhere
+- `MongooseModule.forRoot(...)` — opens the MongoDB connection on startup
+
+---
+
+## What comes next — Step 3
+Create the Expense feature:
+- Expense schema (Mongoose model)
+- POST endpoint to save an expense
+- GET endpoint to list expenses
 
 ---
