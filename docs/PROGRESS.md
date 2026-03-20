@@ -59,10 +59,53 @@ Visit `http://localhost:3000` — should show "Hello World!"
 
 ---
 
-## What comes next — Step 3
-Create the Expense feature:
-- Expense schema (Mongoose model)
-- POST endpoint to save an expense
-- GET endpoint to list expenses
+## Step 3 — Expense Feature ✅
+**Date:** 2026-03-20
+
+### What we built
+- Expense schema (Mongoose model) — defines shape of data in MongoDB
+- `POST /expenses` — saves a new expense
+- `GET /expenses` — returns all saved expenses
+
+### Files created
+| File | What it does |
+|------|-------------|
+| `backend/src/expenses/expense.schema.ts` | Mongoose schema — defines amount, merchant, category, rawMessage, date fields |
+| `backend/src/expenses/expenses.service.ts` | Business logic — create() and findAll() methods |
+| `backend/src/expenses/expenses.controller.ts` | HTTP routes — POST and GET /expenses |
+| `backend/src/expenses/expenses.module.ts` | Ties schema + service + controller together |
+
+### API Endpoints
+| Method | URL | What it does |
+|--------|-----|-------------|
+| POST | `/expenses` | Save a new expense |
+| GET | `/expenses` | Get all expenses |
+
+### Example POST body
+```json
+{
+  "amount": 450,
+  "merchant": "Zomato",
+  "category": "Food",
+  "rawMessage": "Spent 450 Zomato"
+}
+```
+
+### How to test (PowerShell)
+```powershell
+# Save expense
+Invoke-RestMethod -Method POST -Uri http://localhost:3000/expenses -ContentType "application/json" -Body '{"amount": 450, "merchant": "Zomato", "category": "Food", "rawMessage": "Spent 450 Zomato"}'
+
+# Get all expenses
+Invoke-RestMethod -Uri http://localhost:3000/expenses
+```
+
+---
+
+## What comes next — Step 4
+Connect Groq AI to parse natural language:
+- User sends "Spent ₹450 Zomato"
+- AI extracts: amount=450, merchant=Zomato, category=Food
+- Auto-saves to MongoDB
 
 ---
