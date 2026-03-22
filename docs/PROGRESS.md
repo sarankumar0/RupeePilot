@@ -175,13 +175,50 @@ Invoke-RestMethod -Uri http://localhost:3000/expenses
 
 ---
 
-## What comes next — Step 4: Groq AI Integration
+## Step 4 — Groq AI Integration ✅
+**Date:** 2026-03-22
 
-Connect Groq API so natural language gets parsed automatically:
-- User sends: `"Spent ₹450 Zomato"`
-- AI extracts: `{ amount: 450, merchant: "Zomato", category: "Food" }`
-- Backend auto-saves — no manual field entry needed
+### What we built
+- `AiService` — calls Groq API with a structured prompt to extract expense fields from plain English
+- `POST /expenses/parse` — accepts raw text, runs it through AI, auto-saves to MongoDB
+- No manual field entry needed — just type naturally
 
-**Before Step 4:** Get your free Groq API key at https://console.groq.com
+### Files created
+| File | What it does |
+|------|-------------|
+| `backend/src/ai/ai.service.ts` | Calls Groq API, extracts amount/merchant/category from raw text |
+| `backend/src/ai/ai.module.ts` | Wraps AiService so other modules can use it |
+
+### Model used
+`llama-3.3-70b-versatile` via Groq API
+> Note: `llama3-70b-8192` was decommissioned — always check `console.groq.com/docs/deprecations` for current models
+
+### API Endpoint
+| Method | URL | Body | Response |
+|--------|-----|------|----------|
+| POST | `/expenses/parse` | `{ "text": "Spent 450 at Zomato" }` | `{ parsed, expense }` |
+
+### How to test (PowerShell)
+```powershell
+Invoke-RestMethod -Method POST -Uri http://localhost:3000/expenses/parse -ContentType "application/json" -Body '{"text": "Spent 450 at Zomato last night"}'
+```
+
+### Tested and verified ✅
+- Input: `"Spent 450 at Zomato last night"`
+- AI extracted: `{ amount: 450, merchant: "Zomato", category: "Food" }`
+- Auto-saved to MongoDB with timestamps
+
+### Important notes
+- `GROQ_API_KEY` lives in `backend/.env` — never commit this file
+- Always run server with `npm run start:dev` for auto-restart on file changes
+
+---
+
+## What comes next — Step 5: Telegram Bot
+
+Connect a Telegram bot so users can send expense messages directly from Telegram:
+- User sends message to bot: `"Spent ₹450 Zomato"`
+- Bot passes text to `/expenses/parse`
+- AI extracts and saves — confirms back to user in Telegram
 
 ---
