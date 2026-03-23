@@ -333,11 +333,56 @@ Dashboard    → fetch expenses by telegramUserId
 
 ---
 
+## Step 7b — Telegram Account Linking ✅
+**Date:** 2026-03-23
+
+### What we built
+- Magic code linking flow — user generates a code on the dashboard, types `/link <code>` in Telegram bot, accounts get connected
+- Dashboard shows "Telegram Connected ✅" once linked
+- Fixed CORS — backend now allows requests from `http://localhost:3001`
+- Fixed googleId mismatch — session now carries the real Google ID (not NextAuth's internal UUID)
+
+### Files changed
+| File | What changed |
+|------|-------------|
+| `backend/src/users/user.schema.ts` | Added `linkCode` field |
+| `backend/src/users/users.service.ts` | Added `generateLinkCode()` and `linkByCode()` methods |
+| `backend/src/users/users.controller.ts` | Added `POST /users/:googleId/generate-link-code` endpoint |
+| `backend/src/telegram/telegram.module.ts` | Imported UsersModule |
+| `backend/src/telegram/telegram.service.ts` | Handles `/link <code>` command |
+| `backend/src/main.ts` | Enabled CORS for `http://localhost:3001` |
+| `frontend/src/auth.ts` | Fixed: save real Google ID in JWT via `jwt` callback, not `token.sub` |
+| `frontend/src/app/dashboard/TelegramLink.tsx` | New client component — full link flow UI with bot link |
+| `frontend/src/app/dashboard/page.tsx` | Fetches user profile, passes `isLinked` to TelegramLink |
+
+### New API Endpoint
+| Method | URL | Description |
+|--------|-----|-------------|
+| POST | `/users/:googleId/generate-link-code` | Generates a 6-char code, saves to user in MongoDB |
+
+### How linking works
+```
+1. User clicks "Link Telegram" on dashboard
+2. Backend generates code e.g. "XK7P2M", saves it on the user document
+3. Dashboard shows: "Open Telegram and type /link XK7P2M"
+4. User types /link XK7P2M in the bot
+5. Bot finds user by code → saves telegramUserId → clears the code
+6. Dashboard shows "Telegram Connected ✅"
+```
+
+### Bug fixed — googleId mismatch
+NextAuth's `token.sub` is an internal UUID, not the Google user ID. Fixed by adding a `jwt` callback that saves `account.providerAccountId` (the real Google ID) into the token.
+
+### Telegram bot link
+`https://t.me/rupeepilot_bot`
+
+---
+
 ## What comes next — Step 8: Dashboard with Real Data + Charts
 
-- Fetch real expenses from MongoDB filtered by telegramUserId
-- Monthly total, category breakdown
-- Charts using Recharts
-- Link Telegram ID from the dashboard UI
+- `GET /expenses?telegramUserId=xxx` — filter expenses by user
+- `GET /expenses/summary?telegramUserId=xxx` — monthly total + category breakdown
+- Replace ₹0 placeholder cards with real numbers
+- Category breakdown chart using Recharts
 
 ---

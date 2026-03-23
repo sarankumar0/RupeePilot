@@ -30,4 +30,12 @@ export class UsersController {
     const user = await this.usersService.linkTelegram(googleId, body.telegramUserId);
     return { user };
   }
+
+  // Generate a one-time code that the user will type in Telegram to link their account
+  // e.g. POST /users/108234.../generate-link-code → returns { code: "XK7P2M" }
+  @Post(':googleId/generate-link-code')
+  async generateLinkCode(@Param('googleId') googleId: string) {
+    const code = await this.usersService.generateLinkCode(googleId);
+    return { code };
+  }
 }

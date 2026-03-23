@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query } from '@nestjs/common';
 import { ExpensesService } from './expenses.service';
 import { AiService } from '../ai/ai.service';
 
@@ -53,13 +53,23 @@ export class ExpensesController {
   }
 
   // GET /expenses
-  // Returns all saved expenses as a JSON array
+  // If ?telegramUserId=xxx is passed → returns only that user's expenses
+  // Otherwise → returns all expenses
   @Get()
-  async findAll() {
+  async findAll(@Query('telegramUserId') telegramUserId?: string) {
+    if (telegramUserId) {
+      const expenses = await this.expensesService.findByUser(Number(telegramUserId));
+      return { count: expenses.length, expenses };
+    }
     const expenses = await this.expensesService.findAll();
-    return {
-      count: expenses.length,
-      expenses,
-    };
+    return { count: expenses.length, expenses };
+  }
+
+  // GET /expenses/summary?telegramUserId=xxx
+  // Returns stats for the dashboard: monthly total, all-time total, category breakdown
+  @Get('summary')
+  async getSummary(@Query('telegramUserId') telegramUserId: string) {
+    const summary = await this.expensesService.getSummary(Number(telegramUserId));
+    return summary;
   }
 }

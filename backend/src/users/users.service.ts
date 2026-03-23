@@ -1,10 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from './user.schema';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) {}
@@ -35,5 +37,48 @@ export class UsersService {
       { telegramUserId },
       { new: true },
     );
+  }
+
+  // Generate a random 6-character code and save it on the user
+  // The user will type this code in the Telegram bot to link their account
+  async generateLinkCode(googleId: string): Promise<string> {
+    // Make a random 6-char uppercase code like "XK7P2M"
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+    this.logger.log(`Generating link code "${code}" for googleId: ${googleId}`);
+
+    const updated = await this.userModel.findOneAndUpdate(
+      { googleId },
+      { $set: { linkCode: code } },
+      { new: true },
+    );
+
+    if (!updated) {
+      this.logger.error(`No user found in MongoDB with googleId: ${googleId}`);
+    } else {
+      this.logger.log(`Saved linkCode "${code}" to user: ${updated.email}`);
+    }
+
+    return code;
+  }
+
+  // Called by the Telegram bot when user types /link <code>
+  // Finds the user who owns that code, saves their telegramUserId, clears the code
+  async linkByCode(code: string, telegramUserId: number): Promise<UserDocument | null> {
+    this.logger.log(`Trying to link by code "${code}" for telegramUserId: ${telegramUserId}`);
+
+    const user = await this.userModel.findOneAndUpdate(
+      { linkCode: code },
+      { $set: { telegramUserId }, $unset: { linkCode: '' } },
+      { new: true },
+    );
+
+    if (!user) {
+      this.logger.error(`No user found with linkCode: ${code}`);
+    } else {
+      this.logger.log(`Linked telegramUserId ${telegramUserId} to user: ${user.email}`);
+    }
+
+    return user;
   }
 }

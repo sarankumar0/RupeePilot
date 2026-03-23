@@ -28,9 +28,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
       return true;
     },
+    async jwt({ token, account }) {
+      // On first sign-in, account is available — save the real Google ID into the token
+      if (account?.provider === 'google') {
+        token.googleId = account.providerAccountId;
+      }
+      return token;
+    },
     async session({ session, token }) {
-      if (session.user && token.sub) {
-        (session.user as any).googleId = token.sub;
+      // Pass the real Google ID (saved in jwt callback) to the session
+      if (session.user && token.googleId) {
+        (session.user as any).googleId = token.googleId;
       }
       return session;
     },

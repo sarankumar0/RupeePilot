@@ -21,6 +21,10 @@ export class User {
   // Telegram user ID — user links this after logging in
   @Prop()
   telegramUserId: number;
+
+  // Temporary code used to link Telegram from the dashboard (cleared after linking)
+  @Prop()
+  linkCode: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
