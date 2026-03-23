@@ -26,6 +26,11 @@ export class Expense {
   @Prop({ required: true })
   rawMessage: string;
 
+  // Telegram user ID — identifies who sent this expense
+  // Required when coming from Telegram, optional for API calls
+  @Prop()
+  telegramUserId: number;
+
   // The date of the expense — defaults to right now if not provided
   @Prop({ default: Date.now })
   date: Date;

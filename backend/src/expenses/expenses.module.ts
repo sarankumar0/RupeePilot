@@ -12,5 +12,6 @@ import { AiModule } from '../ai/ai.module';
   ],
   controllers: [ExpensesController],
   providers: [ExpensesService],
+  exports: [ExpensesService],
 })
 export class ExpensesModule {}

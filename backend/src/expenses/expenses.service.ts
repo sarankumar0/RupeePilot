@@ -18,6 +18,7 @@ export class ExpensesService {
     merchant: string;
     category: string;
     rawMessage: string;
+    telegramUserId?: number;
   }): Promise<ExpenseDocument> {
     const expense = new this.expenseModel(data);
     return expense.save(); // .save() writes it to MongoDB

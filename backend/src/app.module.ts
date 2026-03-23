@@ -4,6 +4,8 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ExpensesModule } from './expenses/expenses.module';
+import { TelegramModule } from './telegram/telegram.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -16,6 +18,12 @@ import { ExpensesModule } from './expenses/expenses.module';
 
     // Our expenses feature module
     ExpensesModule,
+
+    // Telegram bot module — listens for messages and parses expenses
+    TelegramModule,
+
+    // Users module — saves Google login users to MongoDB
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

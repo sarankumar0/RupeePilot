@@ -214,11 +214,130 @@ Invoke-RestMethod -Method POST -Uri http://localhost:3000/expenses/parse -Conten
 
 ---
 
-## What comes next — Step 5: Telegram Bot
+## Step 5 — Telegram Bot ✅
+**Date:** 2026-03-22
 
-Connect a Telegram bot so users can send expense messages directly from Telegram:
-- User sends message to bot: `"Spent ₹450 Zomato"`
-- Bot passes text to `/expenses/parse`
-- AI extracts and saves — confirms back to user in Telegram
+### What we built
+- `TelegramService` — listens for messages via polling, parses expenses using AI, saves to MongoDB
+- `/start` command — welcome message explaining how to use the bot
+- Every expense saved includes `telegramUserId` so we know who sent it
+- Bot replies with a confirmation after saving
+
+### Files created
+| File | What it does |
+|------|-------------|
+| `backend/src/telegram/telegram.service.ts` | Listens for Telegram messages, calls AiService and ExpensesService |
+| `backend/src/telegram/telegram.module.ts` | Wraps TelegramService, imports ExpensesModule and AiModule |
+
+### How it works
+```
+User sends "Spent 450 Zomato" on Telegram
+  → TelegramService receives message
+    → AiService extracts amount, merchant, category
+      → ExpensesService saves to MongoDB with telegramUserId
+        → Bot replies: "✅ Saved! ₹450 at Zomato (Food)"
+```
+
+### Important notes
+- Uses polling mode (bot constantly asks Telegram for new messages)
+- `telegramUserId` stored with every expense — identifies the user
+- Bot token stored in `backend/.env` as `TELEGRAM_BOT_TOKEN`
+- Find your bot on Telegram via: `t.me/your_bot_username`
+- Always run with `npm run start:dev` for auto-restart
+
+---
+
+## Step 6 — Next.js Frontend + Google Login ✅
+**Date:** 2026-03-23
+
+### What we built
+- Next.js 16 frontend with TypeScript + Tailwind CSS
+- Google OAuth login via NextAuth.js v5
+- Login page with "Sign in with Google" button
+- Dashboard page — protected, shows welcome message and expense summary placeholders
+- Auto-syncs user to MongoDB backend on first login
+
+### Files created
+| File | What it does |
+|------|-------------|
+| `frontend/src/auth.ts` | NextAuth config — Google provider, syncs user to backend on login |
+| `frontend/src/app/api/auth/[...nextauth]/route.ts` | NextAuth API route handler |
+| `frontend/src/app/login/page.tsx` | Login page with Google sign-in button |
+| `frontend/src/app/dashboard/page.tsx` | Protected dashboard — redirects to login if not authenticated |
+| `frontend/src/app/page.tsx` | Root page — redirects to /login |
+| `frontend/.env.local` | Frontend secrets — never committed to GitHub |
+
+### How to run frontend
+```powershell
+cd frontend
+npm run dev -- --port 3001
+```
+Visit `http://localhost:3001`
+
+### .env.local contents
+```
+NEXTAUTH_URL=http://localhost:3001
+NEXTAUTH_SECRET=rupeepilot-secret-change-in-production
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+NEXT_PUBLIC_API_URL=http://localhost:3000
+```
+
+### Google OAuth setup
+- Project created in Google Cloud Console
+- OAuth consent screen configured (External)
+- Redirect URI: `http://localhost:3001/api/auth/callback/google`
+
+---
+
+## Step 7 — Users Collection ✅
+**Date:** 2026-03-23
+
+### What we built
+- `User` Mongoose schema — stores Google account details + optional telegramUserId
+- `POST /users/sync` — called automatically after Google login, creates user if first time
+- `GET /users/:googleId` — fetch user profile
+- `POST /users/:googleId/link-telegram` — links Telegram ID to Google account
+
+### Files created
+| File | What it does |
+|------|-------------|
+| `backend/src/users/user.schema.ts` | Mongoose schema — googleId, email, name, avatar, telegramUserId |
+| `backend/src/users/users.service.ts` | findOrCreate, findByGoogleId, linkTelegram methods |
+| `backend/src/users/users.controller.ts` | HTTP routes — sync, get, link-telegram |
+| `backend/src/users/users.module.ts` | Wraps everything together |
+
+### User schema fields
+| Field | Type | Description |
+|-------|------|-------------|
+| googleId | string | Unique Google account ID |
+| email | string | User's Gmail address |
+| name | string | Full name from Google |
+| avatar | string | Profile picture URL |
+| telegramUserId | number | Linked after user connects Telegram |
+
+### API Endpoints
+| Method | URL | Description |
+|--------|-----|-------------|
+| POST | `/users/sync` | Save user after Google login |
+| GET | `/users/:googleId` | Get user profile |
+| POST | `/users/:googleId/link-telegram` | Link Telegram to Google account |
+
+### How identity works
+```
+Google Login → googleId saved in MongoDB
+Telegram Bot → telegramUserId saved with each expense
+Link step    → telegramUserId added to User record
+Dashboard    → fetch expenses by telegramUserId
+```
+
+---
+
+## What comes next — Step 8: Dashboard with Real Data + Charts
+
+- Fetch real expenses from MongoDB filtered by telegramUserId
+- Monthly total, category breakdown
+- Charts using Recharts
+- Link Telegram ID from the dashboard UI
 
 ---
