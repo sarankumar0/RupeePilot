@@ -38,4 +38,26 @@ export class UsersController {
     const code = await this.usersService.generateLinkCode(googleId);
     return { code };
   }
+
+  // Set monthly budget for a user
+  // e.g. POST /users/108234.../budget  body: { monthlyBudget: 10000 }
+  @Post(':googleId/budget')
+  async setBudget(
+    @Param('googleId') googleId: string,
+    @Body() body: { monthlyBudget: number },
+  ) {
+    const user = await this.usersService.setBudget(googleId, body.monthlyBudget);
+    return { user };
+  }
+
+  // Set monthly income for a user
+  // e.g. POST /users/108234.../income  body: { monthlyIncome: 40000 }
+  @Post(':googleId/income')
+  async setIncome(
+    @Param('googleId') googleId: string,
+    @Body() body: { monthlyIncome: number },
+  ) {
+    const user = await this.usersService.setIncome(googleId, body.monthlyIncome);
+    return { user };
+  }
 }

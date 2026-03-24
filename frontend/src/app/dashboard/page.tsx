@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { signOut } from '@/auth';
 import TelegramLink from './TelegramLink';
 import ExpenseSummary from './ExpenseSummary';
+import BudgetSetter from './BudgetSetter';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -92,31 +93,41 @@ export default async function DashboardPage() {
           <p className="text-gray-400 mt-1">Here's your expense summary</p>
         </div>
 
-        {/* If Telegram is linked, show real data. Otherwise show placeholder + link prompt */}
-        {isTelegramLinked && summary ? (
-          <ExpenseSummary summary={summary} expenses={expenses} />
-        ) : (
-          // Placeholder cards shown before Telegram is linked
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
-            <div className="bg-gray-900 rounded-xl p-6">
-              <p className="text-gray-400 text-sm">This Month</p>
-              <p className="text-3xl font-bold mt-1">₹0</p>
-            </div>
-            <div className="bg-gray-900 rounded-xl p-6">
-              <p className="text-gray-400 text-sm">Total Expenses</p>
-              <p className="text-3xl font-bold mt-1">0</p>
-            </div>
-            <div className="bg-gray-900 rounded-xl p-6">
-              <p className="text-gray-400 text-sm">Top Category</p>
-              <p className="text-3xl font-bold mt-1">—</p>
-            </div>
-          </div>
-        )}
-
-        {/* Telegram link section — always shown */}
-        <div className={isTelegramLinked ? 'mt-8' : ''}>
+        {/* Telegram link — always shown at top if not linked, compact if linked */}
+        <div className="mb-6">
           <TelegramLink googleId={googleId} isLinked={isTelegramLinked} />
         </div>
+
+        {/* Finance settings (budget + income) — only when linked */}
+        {isTelegramLinked && (
+          <BudgetSetter
+            googleId={googleId}
+            currentBudget={userProfile?.monthlyBudget ?? 0}
+            currentIncome={userProfile?.monthlyIncome ?? 0}
+          />
+        )}
+
+        {/* Expense dashboard — shown when Telegram is linked */}
+        {isTelegramLinked && summary ? (
+          <div className="mt-6">
+            <ExpenseSummary
+              summary={summary}
+              expenses={expenses}
+              monthlyBudget={userProfile?.monthlyBudget ?? 0}
+              monthlyIncome={userProfile?.monthlyIncome ?? 0}
+            />
+          </div>
+        ) : (
+          // Placeholder before Telegram is linked
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+            {['This Month', 'Total Expenses', 'Top Category'].map(label => (
+              <div key={label} className="bg-gray-900 rounded-xl p-6">
+                <p className="text-gray-400 text-sm">{label}</p>
+                <p className="text-3xl font-bold mt-1 text-gray-600">—</p>
+              </div>
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );

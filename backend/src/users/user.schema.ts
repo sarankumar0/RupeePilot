@@ -25,6 +25,14 @@ export class User {
   // Temporary code used to link Telegram from the dashboard (cleared after linking)
   @Prop()
   linkCode: string;
+
+  // Monthly spending budget set by the user — e.g. 10000 means ₹10,000/month
+  @Prop({ default: 0 })
+  monthlyBudget: number;
+
+  // Monthly income — used in weekly reports to show % of salary spent
+  @Prop({ default: 0 })
+  monthlyIncome: number;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

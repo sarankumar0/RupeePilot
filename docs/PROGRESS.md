@@ -378,11 +378,170 @@ NextAuth's `token.sub` is an internal UUID, not the Google user ID. Fixed by add
 
 ---
 
-## What comes next — Step 8: Dashboard with Real Data + Charts
+## Step 8 — Dashboard with Real Expense Data + Charts ✅
+**Date:** 2026-03-23
 
+### What we built
 - `GET /expenses?telegramUserId=xxx` — filter expenses by user
-- `GET /expenses/summary?telegramUserId=xxx` — monthly total + category breakdown
-- Replace ₹0 placeholder cards with real numbers
-- Category breakdown chart using Recharts
+- `GET /expenses/summary?telegramUserId=xxx` — monthly total, category breakdown, top category
+- Dashboard shows real data when Telegram is linked — stat cards + category bar chart
+- Recent expenses list (last 10)
+- Category bar chart using Recharts with color-coded bars per category
+
+### Files changed
+| File | What changed |
+|------|-------------|
+| `backend/src/expenses/expenses.service.ts` | Added `findByUser()` and `getSummary()` methods |
+| `backend/src/expenses/expenses.controller.ts` | Updated GET /expenses to accept `?telegramUserId`, added `/summary` endpoint |
+| `frontend/src/app/dashboard/ExpenseSummary.tsx` | New client component — stat cards + Recharts bar chart + recent list |
+| `frontend/src/app/dashboard/page.tsx` | Server component fetches summary + expenses, conditionally renders chart |
+
+---
+
+## Step 9 — Budget Alerts ✅
+**Date:** 2026-03-23
+
+### What we built
+- User sets a monthly budget limit on the dashboard
+- After every expense saved via Telegram, bot automatically checks budget usage
+- ⚠️ Warning sent at 80% — shows remaining amount
+- 🚨 Alert sent at 100% — budget exceeded message
+
+### Files changed
+| File | What changed |
+|------|-------------|
+| `backend/src/users/user.schema.ts` | Added `monthlyBudget` field (default 0) |
+| `backend/src/users/users.service.ts` | Added `setBudget()` method |
+| `backend/src/users/users.controller.ts` | Added `POST /users/:googleId/budget` endpoint |
+| `backend/src/telegram/telegram.service.ts` | Added `checkBudgetAlert()` — called after every expense save |
+| `frontend/src/app/dashboard/BudgetSetter.tsx` | New client component — ₹ input + Save button |
+| `frontend/src/app/dashboard/page.tsx` | Renders BudgetSetter when Telegram is linked |
+
+### How it works
+```
+User saves expense via Telegram bot
+  → checkBudgetAlert() runs
+    → Loads user's monthlyBudget from MongoDB
+      → Gets thisMonthTotal from ExpensesService
+        → If spent >= 80% → send ⚠️ warning
+        → If spent >= 100% → send 🚨 exceeded alert
+```
+
+---
+
+## Step 10 — AI Parsing Improvements ✅
+**Date:** 2026-03-23
+
+### Problem
+AI was failing to parse Indian natural language patterns:
+- "Earphone 50" — item first, no explicit "spent"
+- "220 for dress" — amount first
+- "Spent 50 to buy boat earphones" — item described in sentence
+
+### Fix
+Rewrote the Groq prompt with:
+- Detailed category rules with Indian examples (petrol, auto, tiffin, etc.)
+- 7 concrete input → output examples
+- Explicit rule: if no clear merchant, use the item being bought as merchant name
+
+### File changed
+| File | What changed |
+|------|-------------|
+| `backend/src/ai/ai.service.ts` | Completely rewrote the prompt with examples and Indian context rules |
+
+---
+
+## Step 11 — Weekly AI Summary + Income Tracking ✅
+**Date:** 2026-03-24
+
+### What we built
+- User sets monthly income on dashboard (alongside budget)
+- Every Sunday at 8 PM IST, bot sends a full weekly report to all linked users
+- Report includes: this week's total, vs last week comparison, this month total vs budget and income, category breakdown, biggest expense, heaviest day, AI-generated tip
+
+### Files changed
+| File | What changed |
+|------|-------------|
+| `backend/src/users/user.schema.ts` | Added `monthlyIncome` field |
+| `backend/src/users/users.service.ts` | Added `setIncome()`, `findAllLinked()` methods |
+| `backend/src/users/users.controller.ts` | Added `POST /users/:googleId/income` endpoint |
+| `backend/src/expenses/expenses.service.ts` | Added `getWeekSummary()` — this week, last week, biggest expense, heaviest day |
+| `backend/src/ai/ai.service.ts` | Added `generateWeeklyTip()` — 1-line personalised saving tip via Groq |
+| `backend/src/telegram/telegram.service.ts` | Added `sendWeeklyReport()` + node-cron job (every Sunday 8 PM IST) |
+| `frontend/src/app/dashboard/BudgetSetter.tsx` | Extended to include income input — side-by-side budget + income fields |
+
+### Weekly report format
+```
+📊 Weekly Report — Mar 17–23
+
+💸 This week: ₹4,800
+📈 vs last week: +₹800 (+20%)
+
+📅 This month so far: ₹11,200
+⚠️ Monthly budget: ₹11,200 / ₹25,000 (44% used)
+💼 Monthly income: ₹40,000 → 28% spent so far
+
+📂 Category Breakdown:
+  🍔 Food          ₹1,800 (37%)
+  🛍 Shopping      ₹1,200 (25%)
+  ...
+
+🔺 Biggest: ₹1,200 at Amazon
+📆 Heaviest day: Saturday
+
+💡 Tip: Try home tiffin 3 days a week to save ₹500–₹800/month.
+```
+
+### Cron schedule
+`30 14 * * 0` → Every Sunday 14:30 UTC = 8:00 PM IST
+
+---
+
+## Step 12 — Full Dashboard Redesign ✅
+**Date:** 2026-03-24
+
+### What we built
+Complete rewrite of the dashboard UI with multi-column layout, interactive charts, and smart insights.
+
+### Layout (top → bottom)
+1. Telegram link status
+2. Monthly Finance Settings (income + budget side by side)
+3. **5 stat cards** — This Month / Budget % / Income % / Saved This Month / Top Category
+4. **Category filter pills** — filters all charts when clicked
+5. **Main chart (2/3) + Insights sidebar (1/3)**
+   - Main chart: Day / Week / Month toggle with date picker
+   - Day view: category breakdown bar chart for selected day
+   - Week view: daily totals Mon–Sun for selected week
+   - Month view: daily totals for every day of selected month
+   - Insights sidebar: 30-day trend line, weekday vs weekend average, heaviest day of week, all-time total
+6. **Comparison chart** — compare any two days / weeks / months side by side per category
+7. **Recent expenses** — date picker (default today) + merchant search + day total
+
+### New features vs previous dashboard
+| Feature | Before | After |
+|---------|--------|-------|
+| Stat cards | 3 cards | 5 cards including savings + income % |
+| Chart | Static all-time category bar | Interactive Day/Week/Month with date picker |
+| Category filter | None | Pills that filter all charts |
+| Trend | None | 30-day sparkline |
+| Spend insights | None | Weekend vs weekday, heaviest day |
+| Comparison | None | Any two periods side by side |
+| Recent expenses | Last 10, no filter | Filterable by date + searchable |
+
+### Files changed
+| File | What changed |
+|------|-------------|
+| `frontend/src/app/dashboard/ExpenseSummary.tsx` | Complete rewrite — all new features |
+| `frontend/src/app/dashboard/page.tsx` | Passes `monthlyBudget` + `monthlyIncome` to ExpenseSummary, reordered layout |
+
+---
+
+## What comes next — Step 13: Deploy
+
+- MongoDB Atlas — move from local MongoDB to cloud
+- Railway — deploy NestJS backend
+- Vercel — deploy Next.js frontend
+- Switch Telegram bot from polling → webhook mode (required for production)
+- Update environment variables for production URLs
 
 ---

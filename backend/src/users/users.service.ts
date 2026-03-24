@@ -39,6 +39,34 @@ export class UsersService {
     );
   }
 
+  // Find user by their Telegram ID — used by the bot to load budget info
+  async findByTelegramId(telegramUserId: number): Promise<UserDocument | null> {
+    return this.userModel.findOne({ telegramUserId });
+  }
+
+  // Save the user's monthly budget
+  async setBudget(googleId: string, monthlyBudget: number): Promise<UserDocument | null> {
+    return this.userModel.findOneAndUpdate(
+      { googleId },
+      { $set: { monthlyBudget } },
+      { returnDocument: 'after' },
+    );
+  }
+
+  // Save the user's monthly income — used in weekly reports
+  async setIncome(googleId: string, monthlyIncome: number): Promise<UserDocument | null> {
+    return this.userModel.findOneAndUpdate(
+      { googleId },
+      { $set: { monthlyIncome } },
+      { returnDocument: 'after' },
+    );
+  }
+
+  // Get all users who have linked their Telegram — used for weekly report broadcast
+  async findAllLinked(): Promise<UserDocument[]> {
+    return this.userModel.find({ telegramUserId: { $exists: true, $ne: null } }).exec();
+  }
+
   // Generate a random 6-character code and save it on the user
   // The user will type this code in the Telegram bot to link their account
   async generateLinkCode(googleId: string): Promise<string> {

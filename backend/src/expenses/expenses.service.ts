@@ -37,6 +37,68 @@ export class ExpensesService {
       .exec();
   }
 
+  // Calculate this week's and last week's expense data for the weekly report
+  async getWeekSummary(telegramUserId: number) {
+    const now = new Date();
+
+    // Find the most recent Sunday (start of this week Sun–Sat)
+    const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon ... 6=Sat
+    const startOfThisWeek = new Date(now);
+    startOfThisWeek.setDate(now.getDate() - dayOfWeek);
+    startOfThisWeek.setHours(0, 0, 0, 0);
+
+    const startOfLastWeek = new Date(startOfThisWeek);
+    startOfLastWeek.setDate(startOfThisWeek.getDate() - 7);
+
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const all = await this.expenseModel.find({ telegramUserId }).exec();
+
+    const thisWeek = all.filter((e) => new Date(e.date) >= startOfThisWeek);
+    const lastWeek = all.filter(
+      (e) => new Date(e.date) >= startOfLastWeek && new Date(e.date) < startOfThisWeek,
+    );
+    const thisMonth = all.filter((e) => new Date(e.date) >= startOfMonth);
+
+    const thisWeekTotal = thisWeek.reduce((s, e) => s + e.amount, 0);
+    const lastWeekTotal = lastWeek.reduce((s, e) => s + e.amount, 0);
+    const thisMonthTotal = thisMonth.reduce((s, e) => s + e.amount, 0);
+
+    // Category breakdown for this week
+    const categoryMap: Record<string, number> = {};
+    for (const e of thisWeek) {
+      categoryMap[e.category] = (categoryMap[e.category] || 0) + e.amount;
+    }
+    const byCategory = Object.entries(categoryMap)
+      .map(([category, total]) => ({ category, total }))
+      .sort((a, b) => b.total - a.total);
+
+    // Biggest single expense this week
+    const biggestExpense = thisWeek.reduce(
+      (max, e) => (e.amount > (max?.amount ?? 0) ? e : max),
+      null as (typeof thisWeek)[0] | null,
+    );
+
+    // Day with the most spending (0=Sun … 6=Sat)
+    const dayTotals: Record<number, number> = {};
+    for (const e of thisWeek) {
+      const day = new Date(e.date).getDay();
+      dayTotals[day] = (dayTotals[day] || 0) + e.amount;
+    }
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const heaviestDayNum = Object.entries(dayTotals).sort((a, b) => b[1] - a[1])[0]?.[0];
+    const heaviestDay = heaviestDayNum !== undefined ? dayNames[Number(heaviestDayNum)] : null;
+
+    return {
+      thisWeekTotal,
+      lastWeekTotal,
+      thisMonthTotal,
+      byCategory,
+      biggestExpense,
+      heaviestDay,
+    };
+  }
+
   // Calculate summary stats for a user:
   // - total spent this calendar month
   // - all-time total and expense count
