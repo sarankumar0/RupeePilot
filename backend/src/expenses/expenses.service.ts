@@ -115,7 +115,12 @@ export class ExpensesService {
     // Filter only expenses from this month
     const thisMonthExpenses = all.filter((e) => new Date(e.date) >= startOfMonth);
 
-    // Add up totals
+    // Separate investments from regular spending
+    const thisMonthInvested = thisMonthExpenses
+      .filter((e) => e.category === 'Investment')
+      .reduce((sum, e) => sum + e.amount, 0);
+
+    // thisMonthTotal = all spending including investments (for overall awareness)
     const thisMonthTotal = thisMonthExpenses.reduce((sum, e) => sum + e.amount, 0);
     const allTimeTotal = all.reduce((sum, e) => sum + e.amount, 0);
 
@@ -130,11 +135,13 @@ export class ExpensesService {
       .map(([category, total]) => ({ category, total }))
       .sort((a, b) => b.total - a.total);
 
-    // The category with the highest spend
-    const topCategory = byCategory[0]?.category ?? '—';
+    // Top category excluding Investment (Investment is wealth-building, not spending)
+    const topCategory =
+      byCategory.find((b) => b.category !== 'Investment')?.category ?? '—';
 
     return {
       thisMonthTotal,
+      thisMonthInvested,
       allTimeTotal,
       totalCount: all.length,
       topCategory,

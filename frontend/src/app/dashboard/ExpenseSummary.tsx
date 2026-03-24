@@ -16,6 +16,7 @@ interface Expense {
 
 interface Summary {
   thisMonthTotal: number;
+  thisMonthInvested: number;
   allTimeTotal: number;
   totalCount: number;
   topCategory: string;
@@ -37,12 +38,13 @@ const CATEGORY_COLORS: Record<string, string> = {
   EMI: '#ef4444',
   Health: '#22c55e',
   Utilities: '#eab308',
+  Investment: '#10b981',
   Others: '#6b7280',
 };
 
 const CATEGORY_EMOJIS: Record<string, string> = {
   Food: '🍔', Transport: '🚗', Shopping: '🛍', Entertainment: '🎬',
-  Health: '🏥', Utilities: '💡', EMI: '🏦', Others: '📦',
+  Health: '🏥', Utilities: '💡', EMI: '🏦', Investment: '📈', Others: '📦',
 };
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -260,9 +262,15 @@ export default function ExpenseSummary({ summary, expenses, monthlyBudget, month
 
   const recentDayTotal = recentExpenses.reduce((s, e) => s + e.amount, 0);
 
-  const budgetPct = monthlyBudget > 0 ? Math.round((summary.thisMonthTotal / monthlyBudget) * 100) : null;
-  const incomePct = monthlyIncome > 0 ? Math.round((summary.thisMonthTotal / monthlyIncome) * 100) : null;
-  const savings = monthlyIncome > 0 ? monthlyIncome - summary.thisMonthTotal : null;
+  // Spent = total minus investment (investment is wealth-building, not spending)
+  const thisMonthSpent = summary.thisMonthTotal - (summary.thisMonthInvested ?? 0);
+  const thisMonthInvested = summary.thisMonthInvested ?? 0;
+
+  const budgetPct = monthlyBudget > 0 ? Math.round((thisMonthSpent / monthlyBudget) * 100) : null;
+  const freeCash = monthlyIncome > 0 ? monthlyIncome - summary.thisMonthTotal : null;
+  const savingsRate = monthlyIncome > 0
+    ? Math.round(((thisMonthInvested + Math.max(0, freeCash ?? 0)) / monthlyIncome) * 100)
+    : null;
 
   const pickerClass = 'bg-gray-800 text-gray-300 text-sm rounded-lg px-3 py-1.5 border border-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500';
   const toggleBase = 'px-4 py-1.5 text-sm font-medium transition capitalize';
@@ -287,7 +295,19 @@ export default function ExpenseSummary({ summary, expenses, monthlyBudget, month
 
       {/* ── STAT CARDS (5 across) ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-        <StatCard label="This Month" value={fmt(summary.thisMonthTotal)} />
+        <StatCard
+          label="Spent This Month"
+          value={fmt(thisMonthSpent)}
+          sub={summary.totalCount > 0 ? `${summary.totalCount} expenses` : undefined}
+        />
+        <StatCard
+          label="Invested"
+          value={thisMonthInvested > 0 ? fmt(thisMonthInvested) : '—'}
+          sub={thisMonthInvested > 0 && monthlyIncome > 0
+            ? `${Math.round((thisMonthInvested / monthlyIncome) * 100)}% of income`
+            : 'Log SIP / stocks'}
+          color="text-emerald-400"
+        />
         <StatCard
           label="Budget Used"
           value={budgetPct !== null ? `${budgetPct}%` : '—'}
@@ -295,18 +315,12 @@ export default function ExpenseSummary({ summary, expenses, monthlyBudget, month
           color={budgetPct !== null ? (budgetPct >= 100 ? 'text-red-400' : budgetPct >= 80 ? 'text-yellow-400' : 'text-green-400') : undefined}
         />
         <StatCard
-          label="Income Used"
-          value={incomePct !== null ? `${incomePct}%` : '—'}
-          sub={monthlyIncome > 0 ? `of ${fmt(monthlyIncome)}` : 'Not set'}
-          color={incomePct !== null ? (incomePct >= 80 ? 'text-yellow-400' : 'text-green-400') : undefined}
+          label="Free Cash"
+          value={freeCash !== null ? fmt(Math.max(0, freeCash)) : '—'}
+          sub={freeCash !== null && freeCash < 0 ? '⚠️ Over income' : (savingsRate !== null ? `${savingsRate}% savings rate` : undefined)}
+          color={freeCash !== null ? (freeCash >= 0 ? 'text-green-400' : 'text-red-400') : undefined}
         />
-        <StatCard
-          label="Saved This Month"
-          value={savings !== null ? fmt(Math.max(0, savings)) : '—'}
-          sub={savings !== null && savings < 0 ? '⚠️ Over income' : undefined}
-          color={savings !== null ? (savings >= 0 ? 'text-green-400' : 'text-red-400') : undefined}
-        />
-        <StatCard label="Top Category" value={summary.topCategory} sub={`${summary.totalCount} total`} />
+        <StatCard label="Top Category" value={summary.topCategory} sub="highest spend" />
       </div>
 
       {/* ── CATEGORY FILTER PILLS ── */}

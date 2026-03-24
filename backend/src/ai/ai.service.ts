@@ -27,7 +27,7 @@ Message: "${rawMessage}"
 Rules:
 - amount: extract the number (ignore ₹, rs, rupee, rupees symbols). If not found, return 0.
 - merchant: the shop, app, person, or item name. If no clear merchant, use the item being bought (e.g. "boat earphones" → "Boat Earphones"). If given to a person, use their name.
-- category: pick the best fit from [Food, Transport, Shopping, Entertainment, Health, Utilities, EMI, Others]
+- category: pick the best fit from [Food, Transport, Shopping, Entertainment, Health, Utilities, EMI, Investment, Others]
   - Food → restaurants, food delivery, groceries, snacks, chai, coffee
   - Transport → auto, cab, uber, ola, bus, petrol, fuel, train, metro
   - Shopping → clothes, dress, shoes, electronics, earphones, mobile accessories, gadgets
@@ -35,6 +35,7 @@ Rules:
   - Health → medicines, doctor, hospital, pharmacy
   - Utilities → electricity, water, internet, phone recharge, wifi
   - EMI → loan, emi, credit card payment
+  - Investment → SIP, mutual funds, stocks, zerodha, groww, ETF, gold, crypto, PPF, NPS, demat, shares
   - Others → anything else including money given to friends/family
 
 Examples:
@@ -45,6 +46,9 @@ Examples:
 - "bought dress for 220" → {"amount": 220, "merchant": "Dress", "category": "Shopping"}
 - "spent 50 to buy boat earphones" → {"amount": 50, "merchant": "Boat Earphones", "category": "Shopping"}
 - "petrol 500" → {"amount": 500, "merchant": "Petrol", "category": "Transport"}
+- "SIP 5000" → {"amount": 5000, "merchant": "SIP", "category": "Investment"}
+- "invested 10000 in zerodha" → {"amount": 10000, "merchant": "Zerodha", "category": "Investment"}
+- "mutual fund 3000" → {"amount": 3000, "merchant": "Mutual Fund", "category": "Investment"}
 
 Return ONLY a valid JSON object, nothing else:
 {"amount": 0, "merchant": "", "category": ""}

@@ -536,7 +536,49 @@ Complete rewrite of the dashboard UI with multi-column layout, interactive chart
 
 ---
 
-## What comes next — Step 13: Deploy
+## Step 13 — Investment Tracking ✅
+**Date:** 2026-03-24
+
+### What we built
+- `Investment` is now a first-class category — distinct from regular spending
+- Groq AI recognises investment messages: SIP, mutual funds, stocks, Zerodha, Groww, ETF, gold, crypto, PPF, NPS
+- Dashboard stat cards split into: **Spent** / **Invested** / **Budget Used** / **Free Cash** / **Top Category**
+- Savings rate = (invested + free cash) / income — shown as subtitle on Free Cash card
+- Budget % is calculated against spending only — investments don't count against the budget
+
+### Why this matters
+Lumping investments into expenses made savings look worse than reality. Now the user can see:
+- How much they actually *spent* (bad money going out)
+- How much they *invested* (good money working for them)
+- How much *free cash* remains (unallocated income)
+
+### How to log investments via Telegram
+```
+"SIP 5000"                    → Investment, ₹5000, merchant: SIP
+"invested 10000 in zerodha"   → Investment, ₹10000, merchant: Zerodha
+"mutual fund 3000"            → Investment, ₹3000, merchant: Mutual Fund
+"bought gold 2000"            → Investment, ₹2000, merchant: Gold
+```
+
+### Files changed
+| File | What changed |
+|------|-------------|
+| `backend/src/ai/ai.service.ts` | Added `Investment` to category list with SIP/stocks/ETF/PPF examples |
+| `backend/src/expenses/expenses.service.ts` | `getSummary()` now returns `thisMonthInvested`; `topCategory` excludes Investment |
+| `frontend/src/app/dashboard/ExpenseSummary.tsx` | New stat cards (Spent / Invested / Budget Used / Free Cash / Top Category); Investment color + emoji added |
+
+### Stat card logic
+| Card | Formula |
+|------|---------|
+| Spent This Month | thisMonthTotal − thisMonthInvested |
+| Invested | thisMonthInvested (from Investment category) |
+| Budget Used | (Spent / monthlyBudget) × 100 |
+| Free Cash | monthlyIncome − thisMonthTotal; subtitle shows savings rate % |
+| Top Category | Highest spend category, Investment excluded |
+
+---
+
+## What comes next — Step 14: Deploy
 
 - MongoDB Atlas — move from local MongoDB to cloud
 - Railway — deploy NestJS backend
