@@ -1,13 +1,10 @@
 'use client';
 
-// This component handles the Telegram account linking flow.
-// It is a CLIENT component because it needs useState and button click handlers.
-
 import { useState } from 'react';
 
 interface Props {
-  googleId: string;          // The logged-in user's Google ID
-  isLinked: boolean;         // Whether Telegram is already connected
+  googleId: string;
+  isLinked: boolean;
 }
 
 export default function TelegramLink({ googleId, isLinked }: Props) {
@@ -16,12 +13,9 @@ export default function TelegramLink({ googleId, isLinked }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Called when user clicks "Link Telegram" button
-  // Asks backend to generate a one-time code and saves it on the user in MongoDB
   async function handleGenerateCode() {
     setLoading(true);
     setError(null);
-
     try {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/users/${googleId}/generate-link-code`,
@@ -36,22 +30,17 @@ export default function TelegramLink({ googleId, isLinked }: Props) {
     }
   }
 
-  // Called when user clicks "I've linked it" — re-fetches their profile to confirm
   async function handleConfirm() {
     setLoading(true);
     setError(null);
-
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/users/${googleId}`,
-      );
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${googleId}`);
       const data = await res.json();
-
       if (data.user?.telegramUserId) {
         setLinked(true);
         setCode(null);
       } else {
-        setError("Not linked yet. Make sure you typed the code in Telegram and try again.");
+        setError('Not linked yet. Make sure you typed the code in Telegram and try again.');
       }
     } catch {
       setError('Could not verify. Please try again.');
@@ -60,51 +49,45 @@ export default function TelegramLink({ googleId, isLinked }: Props) {
     }
   }
 
-  // Already linked — show success state
+  // Already linked
   if (linked) {
     return (
-      <div className="bg-green-950 border border-green-800 rounded-xl p-6">
-        <h3 className="font-semibold text-green-300 mb-1">✅ Telegram Connected</h3>
-        <p className="text-green-400 text-sm">
-          Your Telegram is linked. Send expenses anytime and they'll show up here.
-        </p>
+      <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-2xl p-5 flex items-center gap-3">
+        <span className="text-2xl">✅</span>
+        <div>
+          <p className="font-semibold text-green-800 dark:text-green-300">Telegram Connected</p>
+          <p className="text-green-700 dark:text-green-400 text-sm">Send expenses anytime — they'll appear here automatically.</p>
+        </div>
       </div>
     );
   }
 
-  // Code has been generated — show instructions
+  // Code generated — show instructions
   if (code) {
     return (
-      <div className="bg-blue-950 border border-blue-800 rounded-xl p-6">
-        <h3 className="font-semibold text-blue-300 mb-2">Step 2 — Type this in Telegram</h3>
-        <p className="text-blue-400 text-sm mb-4">
-          Open your Telegram bot and send this message:
-        </p>
+      <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-2xl p-6">
+        <h3 className="font-semibold text-blue-800 dark:text-blue-300 mb-1">Step 2 — Type this in Telegram</h3>
+        <p className="text-blue-600 dark:text-blue-400 text-sm mb-4">Open your Telegram bot and send this message:</p>
 
-        {/* The code to type — big and easy to copy */}
-        <div className="bg-gray-900 rounded-lg px-6 py-4 font-mono text-2xl font-bold text-white tracking-widest mb-4 text-center">
+        <div className="bg-white dark:bg-gray-900 border border-blue-200 dark:border-gray-700 rounded-xl px-6 py-4 font-mono text-2xl font-bold text-gray-900 dark:text-white tracking-widest mb-4 text-center">
           /link {code}
         </div>
-
-        <p className="text-blue-400 text-xs mb-2">
-          This code expires once used. If it doesn't work, come back and generate a new one.
-        </p>
 
         <a
           href="https://t.me/rupeepilot_bot"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-block text-blue-400 hover:text-blue-200 text-sm mb-4 underline"
+          className="inline-block text-blue-600 dark:text-blue-400 hover:underline text-sm mb-4"
         >
           Open @rupeepilot_bot →
         </a>
 
-        {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
+        {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
 
         <button
           onClick={handleConfirm}
           disabled={loading}
-          className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-2 px-4 rounded-lg transition"
+          className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-2.5 px-4 rounded-xl transition"
         >
           {loading ? 'Checking...' : "I've linked it ✓"}
         </button>
@@ -112,33 +95,36 @@ export default function TelegramLink({ googleId, isLinked }: Props) {
     );
   }
 
-  // Default — show "Link Telegram" button
+  // Default — link button
   return (
-    <div className="bg-blue-950 border border-blue-800 rounded-xl p-6">
-      <h3 className="font-semibold text-blue-300 mb-1">Connect your Telegram</h3>
-      <p className="text-blue-400 text-sm mb-4">
-        Send expenses to your Telegram bot and they'll appear here automatically.
-      </p>
-
-      {/* Bot link — opens Telegram directly */}
-      <a
-        href="https://t.me/rupeepilot_bot"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-block text-blue-400 hover:text-blue-200 text-sm mb-4 underline"
-      >
-        @rupeepilot_bot →
-      </a>
-
-      {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
-
-      <button
-        onClick={handleGenerateCode}
-        disabled={loading}
-        className="block w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-2 px-5 rounded-lg transition"
-      >
-        {loading ? 'Generating...' : 'Link Telegram →'}
-      </button>
+    <div className="bg-orange-50 dark:bg-blue-950 border border-orange-200 dark:border-blue-800 rounded-2xl p-6">
+      <div className="flex items-start gap-4">
+        <span className="text-3xl">📱</span>
+        <div className="flex-1">
+          <h3 className="font-semibold text-gray-900 dark:text-blue-300 mb-1">Connect your Telegram</h3>
+          <p className="text-gray-600 dark:text-blue-400 text-sm mb-4">
+            Link your Telegram account to start tracking expenses by chat.
+          </p>
+          {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={handleGenerateCode}
+              disabled={loading}
+              className="bg-orange-500 hover:bg-orange-600 dark:bg-blue-600 dark:hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-2 px-5 rounded-xl transition"
+            >
+              {loading ? 'Generating...' : 'Link Telegram →'}
+            </button>
+            <a
+              href="https://t.me/rupeepilot_bot"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-orange-600 dark:text-blue-400 hover:underline text-sm flex items-center"
+            >
+              @rupeepilot_bot
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
