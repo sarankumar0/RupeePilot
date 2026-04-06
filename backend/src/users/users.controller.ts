@@ -60,4 +60,25 @@ export class UsersController {
     const user = await this.usersService.setIncome(googleId, body.monthlyIncome);
     return { user };
   }
+
+  // Complete onboarding — saves income, salary date, budget in one call
+  // e.g. POST /users/108234.../onboarding  body: { monthlyIncome, salaryDate, monthlyBudget }
+  @Post(':googleId/onboarding')
+  async completeOnboarding(
+    @Param('googleId') googleId: string,
+    @Body() body: { monthlyIncome: number; salaryDate: number; monthlyBudget: number },
+  ) {
+    const user = await this.usersService.completeOnboarding(googleId, body);
+    return { user };
+  }
+
+  // Set investment goal % — e.g. POST /users/108234.../investment-goal  body: { investmentGoalPercent: 20 }
+  @Post(':googleId/investment-goal')
+  async setInvestmentGoal(
+    @Param('googleId') googleId: string,
+    @Body() body: { investmentGoalPercent: number },
+  ) {
+    const user = await this.usersService.setInvestmentGoal(googleId, body.investmentGoalPercent);
+    return { user };
+  }
 }

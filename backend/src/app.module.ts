@@ -6,24 +6,16 @@ import { AppService } from './app.service';
 import { ExpensesModule } from './expenses/expenses.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { UsersModule } from './users/users.module';
+import { InvestmentsModule } from './investments/investments.module';
 
 @Module({
   imports: [
-    // Load .env file first so all other modules can use the values inside it
     ConfigModule.forRoot({ isGlobal: true }),
-
-    // Connect to MongoDB using the URI from .env
-    // The '!' tells TypeScript: "trust me, this value exists in .env"
     MongooseModule.forRoot(process.env.MONGODB_URI!),
-
-    // Our expenses feature module
     ExpensesModule,
-
-    // Telegram bot module — listens for messages and parses expenses
     TelegramModule,
-
-    // Users module — saves Google login users to MongoDB
     UsersModule,
+    InvestmentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

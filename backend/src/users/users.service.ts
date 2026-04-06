@@ -62,6 +62,27 @@ export class UsersService {
     );
   }
 
+  // Complete onboarding — saves income, salary date, budget and marks onboardingDone
+  async completeOnboarding(
+    googleId: string,
+    data: { monthlyIncome: number; salaryDate: number; monthlyBudget: number },
+  ): Promise<UserDocument | null> {
+    return this.userModel.findOneAndUpdate(
+      { googleId },
+      { $set: { ...data, onboardingDone: true } },
+      { returnDocument: 'after' },
+    );
+  }
+
+  // Save the user's investment goal as a % of income — e.g. 20 means "invest 20% of salary"
+  async setInvestmentGoal(googleId: string, investmentGoalPercent: number): Promise<UserDocument | null> {
+    return this.userModel.findOneAndUpdate(
+      { googleId },
+      { $set: { investmentGoalPercent } },
+      { returnDocument: 'after' },
+    );
+  }
+
   // Get all users who have linked their Telegram — used for weekly report broadcast
   async findAllLinked(): Promise<UserDocument[]> {
     return this.userModel.find({ telegramUserId: { $exists: true, $ne: null } }).exec();
@@ -88,6 +109,34 @@ export class UsersService {
     }
 
     return code;
+  }
+
+  // Save the current step of an investment conversation for a Telegram user
+  // Called each time the user moves to the next step in the flow
+  async setPendingState(
+    telegramUserId: number,
+    state: {
+      step: 'confirm' | 'choose_type' | 'stock_details';
+      amount: number;
+      name: string;
+      rawMessage: string;
+      type?: string;
+      knownQuantity?: number;
+    },
+  ): Promise<void> {
+    await this.userModel.updateOne({ telegramUserId }, { $set: { pendingInvestmentState: state } });
+  }
+
+  // Read the saved investment conversation state for a Telegram user
+  // Returns null if there is no pending conversation (flow not started or already finished)
+  async getPendingState(telegramUserId: number) {
+    const user = await this.userModel.findOne({ telegramUserId }, { pendingInvestmentState: 1 });
+    return user?.pendingInvestmentState ?? null;
+  }
+
+  // Clear the saved state once the investment is saved or the user cancels
+  async clearPendingState(telegramUserId: number): Promise<void> {
+    await this.userModel.updateOne({ telegramUserId }, { $set: { pendingInvestmentState: null } });
   }
 
   // Called by the Telegram bot when user types /link <code>

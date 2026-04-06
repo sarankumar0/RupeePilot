@@ -39,13 +39,17 @@ const CATEGORY_COLORS: Record<string, string> = {
   EMI: '#ef4444',
   Health: '#22c55e',
   Utilities: '#eab308',
+  Housing: '#f59e0b',
+  Learning: '#6366f1',
+  Insurance: '#64748b',
   Investment: '#10b981',
   Others: '#6b7280',
 };
 
 const CATEGORY_EMOJIS: Record<string, string> = {
   Food: '🍔', Transport: '🚗', Shopping: '🛍', Entertainment: '🎬',
-  Health: '🏥', Utilities: '💡', EMI: '🏦', Investment: '📈', Others: '📦',
+  Health: '🏥', Utilities: '💡', Housing: '🏠', EMI: '🏦',
+  Learning: '📚', Insurance: '🛡️', Investment: '📈', Others: '📦',
 };
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

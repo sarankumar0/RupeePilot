@@ -3,6 +3,20 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Expense, ExpenseDocument } from './expense.schema';
 
+// Returns the start date of the current salary period.
+// If the user's salary comes on the 15th:
+//   - Today = March 20 → period started March 15
+//   - Today = March 10 → period started February 15
+// Defaults to the 1st (calendar month) if salaryDate is not set.
+function getSalaryPeriodStart(salaryDate: number = 1): Date {
+  const now = new Date();
+  if (now.getDate() >= salaryDate) {
+    return new Date(now.getFullYear(), now.getMonth(), salaryDate, 0, 0, 0, 0);
+  } else {
+    return new Date(now.getFullYear(), now.getMonth() - 1, salaryDate, 0, 0, 0, 0);
+  }
+}
+
 // @Injectable() means NestJS will manage this class and inject it wherever needed
 @Injectable()
 export class ExpensesService {
@@ -38,7 +52,8 @@ export class ExpensesService {
   }
 
   // Calculate this week's and last week's expense data for the weekly report
-  async getWeekSummary(telegramUserId: number) {
+  // salaryDate — the day of month the user gets paid (defaults to 1 = calendar month)
+  async getWeekSummary(telegramUserId: number, salaryDate: number = 1) {
     const now = new Date();
 
     // Find the most recent Sunday (start of this week Sun–Sat)
@@ -50,7 +65,8 @@ export class ExpensesService {
     const startOfLastWeek = new Date(startOfThisWeek);
     startOfLastWeek.setDate(startOfThisWeek.getDate() - 7);
 
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    // Use salary-cycle month start instead of calendar month
+    const startOfMonth = getSalaryPeriodStart(salaryDate);
 
     const all = await this.expenseModel.find({ telegramUserId }).exec();
 
@@ -100,14 +116,14 @@ export class ExpensesService {
   }
 
   // Calculate summary stats for a user:
-  // - total spent this calendar month
+  // - total spent this salary period ("this month" starts on salaryDate, not the 1st)
   // - all-time total and expense count
   // - top spending category
   // - breakdown of total spent per category (for the chart)
-  async getSummary(telegramUserId: number) {
-    // Get the first day of the current month at midnight
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  // salaryDate — the day of month the user gets paid (defaults to 1 = calendar month)
+  async getSummary(telegramUserId: number, salaryDate: number = 1) {
+    // Start of the current salary period — e.g. 15th if salary comes on the 15th
+    const startOfMonth = getSalaryPeriodStart(salaryDate);
 
     // Fetch all expenses for this user
     const all = await this.expenseModel.find({ telegramUserId }).exec();

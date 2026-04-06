@@ -65,11 +65,18 @@ export class ExpensesController {
     return { count: expenses.length, expenses };
   }
 
-  // GET /expenses/summary?telegramUserId=xxx
+  // GET /expenses/summary?telegramUserId=xxx&salaryDate=15
   // Returns stats for the dashboard: monthly total, all-time total, category breakdown
+  // salaryDate is optional — defaults to 1 (calendar month) if not provided
   @Get('summary')
-  async getSummary(@Query('telegramUserId') telegramUserId: string) {
-    const summary = await this.expensesService.getSummary(Number(telegramUserId));
+  async getSummary(
+    @Query('telegramUserId') telegramUserId: string,
+    @Query('salaryDate') salaryDate?: string,
+  ) {
+    const summary = await this.expensesService.getSummary(
+      Number(telegramUserId),
+      salaryDate ? Number(salaryDate) : 1,
+    );
     return summary;
   }
 }
