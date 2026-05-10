@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "functions": {
+    "api/index.ts": {
+      "memory": 512,
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/index"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/telegram/weekly-report",
+      "schedule": "30 14 * * 0"
+    }
+  ]
+}

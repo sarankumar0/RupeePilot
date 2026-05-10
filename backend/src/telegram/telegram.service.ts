@@ -5,7 +5,6 @@ import { InvestmentsService } from '../investments/investments.service';
 import { AiService } from '../ai/ai.service';
 import { UsersService } from '../users/users.service';
 import TelegramBot = require('node-telegram-bot-api');
-import * as cron from 'node-cron';
 
 // Shape of the investment conversation state saved in MongoDB
 // Mirrors the pendingInvestmentState field on the User schema
@@ -44,6 +43,17 @@ export class TelegramService implements OnModuleInit {
     } else if (percent >= 80) {
       const remaining = budget - spent;
       await this.bot.sendMessage(chatId, `⚠️ *Budget Warning!*\n\nYou've used ${Math.round(percent)}% of your monthly budget.\n\nSpent: ${fmt(spent)} / ${fmt(budget)}\nRemaining: ${fmt(remaining)}`, { parse_mode: 'Markdown' });
+    }
+  }
+
+  async sendWeeklyReportToAll() {
+    const users = await this.usersService.findAllLinked();
+    for (const user of users) {
+      try {
+        await this.sendWeeklyReport(user.telegramUserId, user.telegramUserId);
+      } catch (err) {
+        this.logger.error(`Failed to send weekly report to ${user.email}`, err);
+      }
     }
   }
 
@@ -229,31 +239,15 @@ export class TelegramService implements OnModuleInit {
     const webhookUrl = this.configService.get<string>('TELEGRAM_WEBHOOK_URL');
 
     if (webhookUrl) {
-      // Production — use webhook (required on hosted servers)
-      this.bot = new TelegramBot(token, { webHook: { port: 443 } });
+      // Production — webhook mode, no local server (Vercel handles incoming requests)
+      this.bot = new TelegramBot(token, { polling: false });
       this.bot.setWebHook(`${webhookUrl}/telegram/webhook`);
-      this.logger.log(`Telegram bot started (webhook) → ${webhookUrl}/telegram/webhook`);
+      this.logger.log(`Telegram bot webhook set → ${webhookUrl}/telegram/webhook`);
     } else {
       // Local development — use polling
       this.bot = new TelegramBot(token, { polling: true });
       this.logger.log('Telegram bot started (polling)');
     }
-
-    cron.schedule('30 14 * * 0', async () => {
-      this.logger.log('Running weekly report cron job...');
-      try {
-        const users = await this.usersService.findAllLinked();
-        for (const user of users) {
-          try {
-            await this.sendWeeklyReport(user.telegramUserId, user.telegramUserId);
-          } catch (err) {
-            this.logger.error(`Failed to send weekly report to ${user.email}`, err);
-          }
-        }
-      } catch (err) {
-        this.logger.error('Weekly report cron failed', err);
-      }
-    });
 
     this.bot.on('message', async (msg) => {
       const chatId = msg.chat.id;
