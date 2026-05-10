@@ -10,11 +10,12 @@ let initialized = false;
 async function bootstrap() {
   if (initialized) return;
   const app = await NestFactory.create(AppModule, adapter, { logger: false });
-  const allowedOrigins = [
-    'http://localhost:3001',
-    process.env.FRONTEND_URL,
-  ].filter(Boolean);
-  app.enableCors({ origin: allowedOrigins });
+  app.enableCors({
+    origin: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true,
+    allowedHeaders: 'Content-Type,Authorization',
+  });
   await app.init();
   initialized = true;
 }
