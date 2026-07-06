@@ -6,10 +6,17 @@ import type { Request, Response } from 'express';
 export class TelegramController {
   constructor(private readonly telegramService: TelegramService) {}
 
-  // Telegram calls this endpoint for every message in webhook mode
+  // Telegram calls this endpoint for every message in webhook mode.
+  // We AWAIT handling so replies finish sending before the serverless function
+  // returns — otherwise Vercel freezes the instance and the bot stays silent.
   @Post('webhook')
   async handleWebhook(@Req() req: Request, @Res() res: Response) {
-    this.telegramService.processUpdate(req.body);
+    try {
+      await this.telegramService.handleUpdate(req.body);
+    } catch (err) {
+      // Swallow errors: always return 200 so Telegram doesn't retry-storm this update.
+      console.error('Telegram webhook handling failed', err);
+    }
     res.sendStatus(200);
   }
 

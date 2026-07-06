@@ -239,17 +239,35 @@ export class TelegramService implements OnModuleInit {
     const webhookUrl = this.configService.get<string>('TELEGRAM_WEBHOOK_URL');
 
     if (webhookUrl) {
-      // Production — webhook mode, no local server (Vercel handles incoming requests)
+      // Production — webhook mode. Telegram POSTs updates to /telegram/webhook,
+      // which the controller forwards to handleUpdate() and AWAITS. We deliberately
+      // do NOT register an 'on message' listener here: on serverless its async
+      // replies would run fire-and-forget and get killed the moment the function
+      // returns 200 — so the bot would go silent even though Telegram sees success.
       this.bot = new TelegramBot(token, { polling: false });
       this.bot.setWebHook(`${webhookUrl}/telegram/webhook`);
       this.logger.log(`Telegram bot webhook set → ${webhookUrl}/telegram/webhook`);
     } else {
-      // Local development — use polling
+      // Local development — use polling. The process stays alive, so awaiting
+      // inside the listener completes normally.
       this.bot = new TelegramBot(token, { polling: true });
       this.logger.log('Telegram bot started (polling)');
+      this.bot.on('message', (msg) => {
+        this.handleMessage(msg).catch((err) => this.logger.error('handleMessage failed', err));
+      });
     }
+  }
 
-    this.bot.on('message', async (msg) => {
+  // Entry point for the webhook path — called and awaited by TelegramController
+  // so replies finish sending before the serverless function returns.
+  async handleUpdate(update: any) {
+    if (update?.message) {
+      await this.handleMessage(update.message);
+    }
+  }
+
+  // Processes a single incoming Telegram message (commands, expenses, investments).
+  private async handleMessage(msg: TelegramBot.Message) {
       const chatId = msg.chat.id;
       const text = msg.text;
       const userId = msg.from?.id;
@@ -354,11 +372,5 @@ export class TelegramService implements OnModuleInit {
         this.logger.error('Failed to parse message', err);
         await this.bot.sendMessage(chatId, '❌ Sorry, I couldn\'t understand that. Try something like:\n"Spent 450 at Zomato"');
       }
-    });
-  }
-
-  // Called by TelegramController to forward webhook updates to the bot
-  processUpdate(update: any) {
-    this.bot.processUpdate(update);
   }
 }
