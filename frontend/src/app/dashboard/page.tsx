@@ -7,9 +7,15 @@ import Sidebar from '@/components/Sidebar';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
-async function getUserProfile(googleId: string) {
+// Attach the backend token so the API can identify the caller from the token
+// (not from an ID in the URL). All reads are scoped to the authenticated user.
+function authGet(token: string) {
+  return { cache: 'no-store' as const, headers: { Authorization: `Bearer ${token}` } };
+}
+
+async function getUserProfile(token: string) {
   try {
-    const res = await fetch(`${API}/users/${googleId}`, { cache: 'no-store' });
+    const res = await fetch(`${API}/users/me`, authGet(token));
     const data = await res.json();
     return data.user;
   } catch {
@@ -17,18 +23,18 @@ async function getUserProfile(googleId: string) {
   }
 }
 
-async function getExpenseSummary(telegramUserId: number, salaryDate: number) {
+async function getExpenseSummary(token: string, salaryDate: number) {
   try {
-    const res = await fetch(`${API}/expenses/summary?telegramUserId=${telegramUserId}&salaryDate=${salaryDate}`, { cache: 'no-store' });
+    const res = await fetch(`${API}/expenses/summary/me?salaryDate=${salaryDate}`, authGet(token));
     return await res.json();
   } catch {
     return null;
   }
 }
 
-async function getExpenses(telegramUserId: number) {
+async function getExpenses(token: string) {
   try {
-    const res = await fetch(`${API}/expenses?telegramUserId=${telegramUserId}`, { cache: 'no-store' });
+    const res = await fetch(`${API}/expenses/me`, authGet(token));
     const data = await res.json();
     return data.expenses ?? [];
   } catch {
@@ -40,8 +46,8 @@ export default async function DashboardPage() {
   const session = await auth();
   if (!session) redirect('/login');
 
-  const googleId = (session.user as any).googleId as string;
-  const userProfile = await getUserProfile(googleId);
+  const token = (session as any).backendToken as string;
+  const userProfile = await getUserProfile(token);
 
   if (!userProfile?.onboardingDone) redirect('/onboarding');
 
@@ -49,8 +55,8 @@ export default async function DashboardPage() {
 
   const [summary, expenses] = isTelegramLinked
     ? await Promise.all([
-        getExpenseSummary(userProfile.telegramUserId, userProfile.salaryDate ?? 1),
-        getExpenses(userProfile.telegramUserId),
+        getExpenseSummary(token, userProfile.salaryDate ?? 1),
+        getExpenses(token),
       ])
     : [null, []];
 
@@ -79,13 +85,13 @@ export default async function DashboardPage() {
 
           {/* Telegram link */}
           <div className="mb-6">
-            <TelegramLink googleId={googleId} isLinked={isTelegramLinked} />
+            <TelegramLink token={token} isLinked={isTelegramLinked} />
           </div>
 
           {/* Finance settings */}
           {isTelegramLinked && (
             <BudgetSetter
-              googleId={googleId}
+              token={token}
               currentBudget={userProfile?.monthlyBudget ?? 0}
               currentIncome={userProfile?.monthlyIncome ?? 0}
             />

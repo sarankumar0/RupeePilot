@@ -3,11 +3,11 @@
 import { useState } from 'react';
 
 interface Props {
-  googleId: string;
+  token: string;
   isLinked: boolean;
 }
 
-export default function TelegramLink({ googleId, isLinked }: Props) {
+export default function TelegramLink({ token, isLinked }: Props) {
   const [linked, setLinked] = useState(isLinked);
   const [code, setCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -18,8 +18,8 @@ export default function TelegramLink({ googleId, isLinked }: Props) {
     setError(null);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/users/${googleId}/generate-link-code`,
-        { method: 'POST' },
+        `${process.env.NEXT_PUBLIC_API_URL}/users/me/generate-link-code`,
+        { method: 'POST', headers: { Authorization: `Bearer ${token}` } },
       );
       const data = await res.json();
       setCode(data.code);
@@ -34,7 +34,9 @@ export default function TelegramLink({ googleId, isLinked }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${googleId}`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await res.json();
       if (data.user?.telegramUserId) {
         setLinked(true);

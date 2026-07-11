@@ -3,12 +3,12 @@
 import { useState } from 'react';
 
 interface Props {
-  googleId: string;
+  token: string;
   currentBudget: number;
   currentIncome: number;
 }
 
-export default function BudgetSetter({ googleId, currentBudget, currentIncome }: Props) {
+export default function BudgetSetter({ token, currentBudget, currentIncome }: Props) {
   const [budget, setBudget] = useState(currentBudget > 0 ? String(currentBudget) : '');
   const [income, setIncome] = useState(currentIncome > 0 ? String(currentIncome) : '');
   const [budgetSaved, setBudgetSaved] = useState(currentBudget > 0);
@@ -26,11 +26,15 @@ export default function BudgetSetter({ googleId, currentBudget, currentIncome }:
     setLoading(true);
     setError(null);
     try {
-      const base = `${process.env.NEXT_PUBLIC_API_URL}/users/${googleId}`;
+      const base = `${process.env.NEXT_PUBLIC_API_URL}/users/me`;
+      const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      };
       if (budgetAmount > 0) {
         const res = await fetch(`${base}/budget`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ monthlyBudget: budgetAmount }),
         });
         if (!res.ok) throw new Error('Failed to save budget');
@@ -39,7 +43,7 @@ export default function BudgetSetter({ googleId, currentBudget, currentIncome }:
       if (incomeAmount > 0) {
         const res = await fetch(`${base}/income`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ monthlyIncome: incomeAmount }),
         });
         if (!res.ok) throw new Error('Failed to save income');

@@ -237,6 +237,7 @@ export class TelegramService implements OnModuleInit {
   onModuleInit() {
     const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN')!;
     const webhookUrl = this.configService.get<string>('TELEGRAM_WEBHOOK_URL');
+    const webhookSecret = this.configService.get<string>('TELEGRAM_WEBHOOK_SECRET');
 
     if (webhookUrl) {
       // Production — webhook mode. Telegram POSTs updates to /telegram/webhook,
@@ -245,7 +246,13 @@ export class TelegramService implements OnModuleInit {
       // replies would run fire-and-forget and get killed the moment the function
       // returns 200 — so the bot would go silent even though Telegram sees success.
       this.bot = new TelegramBot(token, { polling: false });
-      this.bot.setWebHook(`${webhookUrl}/telegram/webhook`);
+      // When a secret is configured, Telegram echoes it back in the
+      // X-Telegram-Bot-Api-Secret-Token header so the controller can reject
+      // spoofed requests. Optional so this is safe to deploy before the env is set.
+      this.bot.setWebHook(
+        `${webhookUrl}/telegram/webhook`,
+        webhookSecret ? ({ secret_token: webhookSecret } as any) : undefined,
+      );
       this.logger.log(`Telegram bot webhook set → ${webhookUrl}/telegram/webhook`);
     } else {
       // Local development — use polling. The process stays alive, so awaiting

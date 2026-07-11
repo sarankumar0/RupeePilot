@@ -4,13 +4,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface Props {
-  googleId: string;
+  token: string;
   name: string;
 }
 
 const STEPS = ['Income', 'Salary Date', 'Budget'];
 
-export default function OnboardingFlow({ googleId, name }: Props) {
+export default function OnboardingFlow({ token, name }: Props) {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [income, setIncome] = useState('');
@@ -25,10 +25,13 @@ export default function OnboardingFlow({ googleId, name }: Props) {
     setError(null);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/users/${googleId}/onboarding`,
+        `${process.env.NEXT_PUBLIC_API_URL}/users/me/onboarding`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
           body: JSON.stringify({
             monthlyIncome: Number(income),
             salaryDate,

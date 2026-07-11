@@ -5,12 +5,12 @@ import { useState } from 'react';
 const API = process.env.NEXT_PUBLIC_API_URL;
 
 interface Props {
-  googleId: string;
+  token: string;
   currentGoal: number;
   monthlyIncome: number;
 }
 
-export default function InvestmentGoalSetter({ googleId, currentGoal, monthlyIncome }: Props) {
+export default function InvestmentGoalSetter({ token, currentGoal, monthlyIncome }: Props) {
   const [goal, setGoal] = useState(currentGoal);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -21,9 +21,12 @@ export default function InvestmentGoalSetter({ googleId, currentGoal, monthlyInc
     if (goal < 1 || goal > 80) return;
     setSaving(true);
     try {
-      await fetch(`${API}/users/${googleId}/investment-goal`, {
+      await fetch(`${API}/users/me/investment-goal`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ investmentGoalPercent: goal }),
       });
       setSaved(true);

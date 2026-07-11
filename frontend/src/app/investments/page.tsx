@@ -7,9 +7,13 @@ import InvestmentPieChart from './InvestmentPieChart';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
-async function getUserProfile(googleId: string) {
+function authGet(token: string) {
+  return { cache: 'no-store' as const, headers: { Authorization: `Bearer ${token}` } };
+}
+
+async function getUserProfile(token: string) {
   try {
-    const res = await fetch(`${API}/users/${googleId}`, { cache: 'no-store' });
+    const res = await fetch(`${API}/users/me`, authGet(token));
     const data = await res.json();
     return data.user;
   } catch {
@@ -17,9 +21,9 @@ async function getUserProfile(googleId: string) {
   }
 }
 
-async function getInvestmentSummary(telegramUserId: number, salaryDate: number) {
+async function getInvestmentSummary(token: string, salaryDate: number) {
   try {
-    const res = await fetch(`${API}/investments/summary?telegramUserId=${telegramUserId}&salaryDate=${salaryDate}`, { cache: 'no-store' });
+    const res = await fetch(`${API}/investments/summary/me?salaryDate=${salaryDate}`, authGet(token));
     return await res.json();
   } catch {
     return { thisMonthTotal: 0, allTimeTotal: 0, byType: [], investments: [] };
@@ -30,12 +34,12 @@ export default async function InvestmentsPage() {
   const session = await auth();
   if (!session) redirect('/login');
 
-  const googleId = (session.user as any).googleId as string;
-  const userProfile = await getUserProfile(googleId);
+  const token = (session as any).backendToken as string;
+  const userProfile = await getUserProfile(token);
   const isTelegramLinked = !!userProfile?.telegramUserId;
 
   const summary = isTelegramLinked
-    ? await getInvestmentSummary(userProfile.telegramUserId, userProfile.salaryDate ?? 1)
+    ? await getInvestmentSummary(token, userProfile.salaryDate ?? 1)
     : { thisMonthTotal: 0, allTimeTotal: 0, byType: [], investments: [] };
 
   const monthlyIncome: number = userProfile?.monthlyIncome ?? 0;
@@ -128,7 +132,7 @@ export default async function InvestmentsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* Goal setter */}
           <InvestmentGoalSetter
-            googleId={googleId}
+            token={token}
             currentGoal={goalPercent}
             monthlyIncome={monthlyIncome}
           />

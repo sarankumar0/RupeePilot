@@ -10,7 +10,18 @@ export class TelegramController {
   // We AWAIT handling so replies finish sending before the serverless function
   // returns — otherwise Vercel freezes the instance and the bot stays silent.
   @Post('webhook')
-  async handleWebhook(@Req() req: Request, @Res() res: Response) {
+  async handleWebhook(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Headers('x-telegram-bot-api-secret-token') secretToken?: string,
+  ) {
+    // If a webhook secret is configured, only accept requests carrying it.
+    // Enforced only when the env var is set, so it's safe to deploy beforehand.
+    const expectedSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
+    if (expectedSecret && secretToken !== expectedSecret) {
+      res.sendStatus(401);
+      return;
+    }
     try {
       await this.telegramService.handleUpdate(req.body);
     } catch (err) {

@@ -1,82 +1,56 @@
-import { Controller, Get, Post, Body, Query } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ExpensesService } from './expenses.service';
-import { AiService } from '../ai/ai.service';
+import { UsersService } from '../users/users.service';
+import { AuthGuard } from '../auth/auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { AuthUser } from '../auth/current-user.decorator';
 
-// @Controller('expenses') means all routes here start with /expenses
+// Read-only endpoints for the dashboard. Expenses are written by the Telegram
+// bot in-process (ExpensesService), never over HTTP, so there is no public
+// create endpoint to abuse. The caller's telegramUserId is resolved from their
+// authenticated googleId — never accepted as a query param.
 @Controller('expenses')
+@UseGuards(AuthGuard)
 export class ExpensesController {
   constructor(
     private readonly expensesService: ExpensesService,
-    private readonly aiService: AiService,
+    private readonly usersService: UsersService,
   ) {}
 
-  // POST /expenses
-  // User sends a JSON body like: { amount: 450, merchant: "Zomato", category: "Food", rawMessage: "Spent ₹450 Zomato" }
-  // @Body() reads the JSON body from the request
-  @Post()
-  async create(
-    @Body()
-    body: {
-      amount: number;
-      merchant: string;
-      category: string;
-      rawMessage: string;
-    },
-  ) {
-    const saved = await this.expensesService.create(body);
-    return {
-      message: 'Expense saved successfully',
-      expense: saved,
-    };
+  private async resolveTelegramId(googleId: string): Promise<number | null> {
+    const user = await this.usersService.findByGoogleId(googleId);
+    return user?.telegramUserId ?? null;
   }
 
-  // POST /expenses/parse
-  // User sends a raw message like: { "text": "Spent 450 at Zomato" }
-  // AI extracts amount, merchant, category — then auto-saves to MongoDB
-  @Post('parse')
-  async parse(@Body() body: { text: string }) {
-    try {
-      const parsed = await this.aiService.parseExpense(body.text);
-      const saved = await this.expensesService.create({
-        ...parsed,
-        rawMessage: body.text,
-      });
-      return {
-        message: 'Expense parsed and saved',
-        parsed,
-        expense: saved,
-      };
-    } catch (error) {
-      console.error('Parse error:', error.message);
-      throw error;
-    }
-  }
-
-  // GET /expenses
-  // If ?telegramUserId=xxx is passed → returns only that user's expenses
-  // Otherwise → returns all expenses
-  @Get()
-  async findAll(@Query('telegramUserId') telegramUserId?: string) {
-    if (telegramUserId) {
-      const expenses = await this.expensesService.findByUser(Number(telegramUserId));
-      return { count: expenses.length, expenses };
-    }
-    const expenses = await this.expensesService.findAll();
+  // GET /expenses/me — the current user's expenses
+  @Get('me')
+  async findMine(@CurrentUser() user: AuthUser) {
+    const telegramUserId = await this.resolveTelegramId(user.googleId);
+    if (!telegramUserId) return { count: 0, expenses: [] };
+    const expenses = await this.expensesService.findByUser(telegramUserId);
     return { count: expenses.length, expenses };
   }
 
-  // GET /expenses/summary?telegramUserId=xxx&salaryDate=15
-  // Returns stats for the dashboard: monthly total, all-time total, category breakdown
-  // salaryDate is optional — defaults to 1 (calendar month) if not provided
-  @Get('summary')
-  async getSummary(
-    @Query('telegramUserId') telegramUserId: string,
+  // GET /expenses/summary/me?salaryDate=15 — dashboard stats for the current user
+  @Get('summary/me')
+  async getSummaryMine(
+    @CurrentUser() user: AuthUser,
     @Query('salaryDate') salaryDate?: string,
   ) {
-    const summary = await this.expensesService.getSummary(
-      Number(telegramUserId),
+    const telegramUserId = await this.resolveTelegramId(user.googleId);
+    if (!telegramUserId) {
+      return {
+        thisMonthTotal: 0,
+        thisMonthInvested: 0,
+        allTimeTotal: 0,
+        totalCount: 0,
+        topCategory: '—',
+        byCategory: [],
+      };
+    }
+    return this.expensesService.getSummary(
+      telegramUserId,
       salaryDate ? Number(salaryDate) : 1,
     );
-    return summary;
   }
 }

@@ -1,84 +1,87 @@
-import { Controller, Post, Body, Get, Param } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
+import { AuthGuard } from '../auth/auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { AuthUser } from '../auth/current-user.decorator';
 
+// Every route requires a valid bearer token. The user's googleId comes from the
+// verified token (CurrentUser) — never from the URL — so a caller can only ever
+// read or modify their own record.
 @Controller('users')
+@UseGuards(AuthGuard)
 export class UsersController {
   constructor(private usersService: UsersService) {}
 
-  // Called by Next.js after Google login — saves user to MongoDB
+  // Called by Next.js right after Google login (token already minted) — saves the
+  // user to MongoDB. googleId is taken from the token; email/name/avatar from body.
   @Post('sync')
   async sync(
-    @Body() body: { googleId: string; email: string; name: string; avatar: string },
+    @CurrentUser() user: AuthUser,
+    @Body() body: { email: string; name: string; avatar: string },
   ) {
-    const user = await this.usersService.findOrCreate(body);
-    return { user };
+    const saved = await this.usersService.findOrCreate({
+      googleId: user.googleId,
+      email: body.email,
+      name: body.name,
+      avatar: body.avatar,
+    });
+    return { user: saved };
   }
 
-  // Get user profile by Google ID
-  @Get(':googleId')
-  async getUser(@Param('googleId') googleId: string) {
-    const user = await this.usersService.findByGoogleId(googleId);
-    return { user };
+  // Get the current user's profile
+  @Get('me')
+  async me(@CurrentUser() user: AuthUser) {
+    return { user: await this.usersService.findByGoogleId(user.googleId) };
   }
 
-  // Link Telegram ID to a Google account
-  @Post(':googleId/link-telegram')
+  // Link a Telegram ID to the current account
+  @Post('me/link-telegram')
   async linkTelegram(
-    @Param('googleId') googleId: string,
+    @CurrentUser() user: AuthUser,
     @Body() body: { telegramUserId: number },
   ) {
-    const user = await this.usersService.linkTelegram(googleId, body.telegramUserId);
-    return { user };
+    return { user: await this.usersService.linkTelegram(user.googleId, body.telegramUserId) };
   }
 
-  // Generate a one-time code that the user will type in Telegram to link their account
-  // e.g. POST /users/108234.../generate-link-code → returns { code: "XK7P2M" }
-  @Post(':googleId/generate-link-code')
-  async generateLinkCode(@Param('googleId') googleId: string) {
-    const code = await this.usersService.generateLinkCode(googleId);
-    return { code };
+  // Generate a one-time code the user types in Telegram to link their account
+  @Post('me/generate-link-code')
+  async generateLinkCode(@CurrentUser() user: AuthUser) {
+    return { code: await this.usersService.generateLinkCode(user.googleId) };
   }
 
-  // Set monthly budget for a user
-  // e.g. POST /users/108234.../budget  body: { monthlyBudget: 10000 }
-  @Post(':googleId/budget')
+  // Set monthly budget
+  @Post('me/budget')
   async setBudget(
-    @Param('googleId') googleId: string,
+    @CurrentUser() user: AuthUser,
     @Body() body: { monthlyBudget: number },
   ) {
-    const user = await this.usersService.setBudget(googleId, body.monthlyBudget);
-    return { user };
+    return { user: await this.usersService.setBudget(user.googleId, body.monthlyBudget) };
   }
 
-  // Set monthly income for a user
-  // e.g. POST /users/108234.../income  body: { monthlyIncome: 40000 }
-  @Post(':googleId/income')
+  // Set monthly income
+  @Post('me/income')
   async setIncome(
-    @Param('googleId') googleId: string,
+    @CurrentUser() user: AuthUser,
     @Body() body: { monthlyIncome: number },
   ) {
-    const user = await this.usersService.setIncome(googleId, body.monthlyIncome);
-    return { user };
+    return { user: await this.usersService.setIncome(user.googleId, body.monthlyIncome) };
   }
 
-  // Complete onboarding — saves income, salary date, budget in one call
-  // e.g. POST /users/108234.../onboarding  body: { monthlyIncome, salaryDate, monthlyBudget }
-  @Post(':googleId/onboarding')
+  // Complete onboarding — income, salary date, budget in one call
+  @Post('me/onboarding')
   async completeOnboarding(
-    @Param('googleId') googleId: string,
+    @CurrentUser() user: AuthUser,
     @Body() body: { monthlyIncome: number; salaryDate: number; monthlyBudget: number },
   ) {
-    const user = await this.usersService.completeOnboarding(googleId, body);
-    return { user };
+    return { user: await this.usersService.completeOnboarding(user.googleId, body) };
   }
 
-  // Set investment goal % — e.g. POST /users/108234.../investment-goal  body: { investmentGoalPercent: 20 }
-  @Post(':googleId/investment-goal')
+  // Set investment goal %
+  @Post('me/investment-goal')
   async setInvestmentGoal(
-    @Param('googleId') googleId: string,
+    @CurrentUser() user: AuthUser,
     @Body() body: { investmentGoalPercent: number },
   ) {
-    const user = await this.usersService.setInvestmentGoal(googleId, body.investmentGoalPercent);
-    return { user };
+    return { user: await this.usersService.setInvestmentGoal(user.googleId, body.investmentGoalPercent) };
   }
 }
