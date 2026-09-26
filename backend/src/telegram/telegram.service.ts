@@ -4,6 +4,7 @@ import { ExpensesService } from '../expenses/expenses.service';
 import { InvestmentsService } from '../investments/investments.service';
 import { AiService } from '../ai/ai.service';
 import { UsersService } from '../users/users.service';
+import { LoansService } from '../loans/loans.service';
 import TelegramBot = require('node-telegram-bot-api');
 
 // Shape of the investment conversation state saved in MongoDB
@@ -17,6 +18,12 @@ interface PendingInvestmentState {
   knownQuantity?: number;
 }
 
+// A loan-related message the user typed, once parsed
+type LoanIntent =
+  | { kind: 'create'; direction: 'lent' | 'borrowed'; amount: number; name: string }
+  | { kind: 'repay'; direction: 'lent' | 'borrowed'; amount: number; name: string }
+  | { kind: 'query'; person?: string };
+
 @Injectable()
 export class TelegramService implements OnModuleInit {
   private bot!: TelegramBot;
@@ -28,6 +35,7 @@ export class TelegramService implements OnModuleInit {
     private investmentsService: InvestmentsService,
     private aiService: AiService,
     private usersService: UsersService,
+    private loansService: LoansService,
   ) {}
 
   private async checkBudgetAlert(chatId: number, telegramUserId: number) {
@@ -234,6 +242,127 @@ export class TelegramService implements OnModuleInit {
     return !hasInstrument;
   }
 
+  // Detects loan messages (lend / borrow / repay / summary query). Returns null
+  // for anything that isn't clearly about lending — so normal expenses fall through.
+  private parseLoanIntent(text: string): LoanIntent | null {
+    const t = text.trim();
+    const lower = t.toLowerCase();
+    const num = (s: string) => parseInt(s.replace(/[^\d]/g, ''), 10);
+
+    // ── Queries ──
+    if (/\bwho (?:all )?owes me\b/.test(lower) || /\bwho do i owe\b/.test(lower)) return { kind: 'query' };
+    if (/\b(?:loans?|debts?) summary\b/.test(lower) || /\bmy loans\b/.test(lower) || /\bshow (?:my )?loans\b/.test(lower)) return { kind: 'query' };
+    let m = lower.match(/how much (?:does|do)\s+(.+?)\s+owes?\s+me\b/);
+    if (m) return { kind: 'query', person: m[1] };
+    m = lower.match(/how much do i owe\s+(.+?)[\s?.!]*$/);
+    if (m) return { kind: 'query', person: m[1] };
+    if (/\bhow much do i owe\b/.test(lower) || /\bhow much am i owed\b/.test(lower)) return { kind: 'query' };
+
+    // ── Repayments (require an explicit back/returned/repaid signal) ──
+    // Someone paid the user back → repayment on a 'lent' loan
+    m = t.match(/^(.+?)\s+(?:paid back|returned|repaid|gave back|settled)\s+(?:₹|rs\.?)?\s*([\d,]+)/i);
+    if (m && m[1].trim().toLowerCase() !== 'i') return { kind: 'repay', direction: 'lent', amount: num(m[2]), name: m[1] };
+    m = lower.match(/got\s+(?:₹|rs\.?)?\s*([\d,]+)\s+back from\s+(.+)/);
+    if (m) return { kind: 'repay', direction: 'lent', amount: num(m[1]), name: m[2] };
+    // The user paid someone back → repayment on a 'borrowed' loan
+    m = t.match(/(?:paid back|repaid|returned)\s+(?:₹|rs\.?)?\s*([\d,]+)\s+to\s+(.+)/i);
+    if (m) return { kind: 'repay', direction: 'borrowed', amount: num(m[1]), name: m[2] };
+    m = t.match(/paid\s+(?:₹|rs\.?)?\s*([\d,]+)\s+back to\s+(.+)/i);
+    if (m) return { kind: 'repay', direction: 'borrowed', amount: num(m[1]), name: m[2] };
+
+    // ── Create ──
+    m = t.match(/\b(?:lent|loaned|lend)\b\s+(?:₹|rs\.?)?\s*([\d,]+)\s+to\s+(.+)/i);
+    if (m) return { kind: 'create', direction: 'lent', amount: num(m[1]), name: m[2] };
+    m = t.match(/\b(?:gave|give)\b\s+(?:₹|rs\.?)?\s*([\d,]+)\s+to\s+(.+)/i);
+    if (m && /\bloan\b/i.test(t)) return { kind: 'create', direction: 'lent', amount: num(m[1]), name: m[2] };
+    m = t.match(/\b(?:borrowed|borrow|took)\b\s+(?:₹|rs\.?)?\s*([\d,]+)\s+(?:loan\s+)?from\s+(.+)/i);
+    if (m) return { kind: 'create', direction: 'borrowed', amount: num(m[1]), name: m[2] };
+
+    return null;
+  }
+
+  // Trim a captured counterparty down to a clean display name
+  private cleanCounterparty(raw: string): string {
+    let n = raw.trim();
+    n = n.split(/\s+(?:for|because|since|as|via|through|on|yesterday|today)\b/i)[0];
+    n = n.replace(/[.?!,;:]+$/, '').trim();
+    n = n.split(/\s+/).slice(0, 3).join(' ');
+    return n.split(' ').map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w)).join(' ');
+  }
+
+  private async handleLoanIntent(chatId: number, userId: number, intent: LoanIntent, rawText: string) {
+    const fmt = (n: number) => `₹${n.toLocaleString('en-IN')}`;
+
+    if (intent.kind === 'query') {
+      const s = await this.loansService.getSummary(userId);
+      if (intent.person) {
+        const key = intent.person.trim().toLowerCase();
+        const p = s.people.find((x) => x.key === key || x.name.toLowerCase().startsWith(key));
+        if (!p) {
+          await this.bot.sendMessage(chatId, `No active loans with *${this.cleanCounterparty(intent.person)}*.`, { parse_mode: 'Markdown' });
+          return;
+        }
+        let msg = `📒 *${p.name}*`;
+        if (p.lent > 0) msg += `\n➡️ Owes you: *${fmt(p.lent)}*`;
+        if (p.borrowed > 0) msg += `\n⬅️ You owe: *${fmt(p.borrowed)}*`;
+        msg += `\n\n${p.netToYou >= 0 ? `Net: ${p.name} owes you *${fmt(p.netToYou)}*` : `Net: you owe ${p.name} *${fmt(-p.netToYou)}*`}`;
+        await this.bot.sendMessage(chatId, msg, { parse_mode: 'Markdown' });
+        return;
+      }
+      if (s.totalReceivable === 0 && s.totalPayable === 0) {
+        await this.bot.sendMessage(chatId, `You have no active loans logged.\n\nTry: "Lent 5000 to Ravi" or "Borrowed 2000 from Kumar".`);
+        return;
+      }
+      let msg = `📒 *Loans Summary*\n\n💰 Owed to you: *${fmt(s.totalReceivable)}*\n💸 You owe: *${fmt(s.totalPayable)}*\n📊 Net: *${s.net >= 0 ? fmt(s.net) : '-' + fmt(-s.net)}*`;
+      const active = s.people.filter((p) => p.lent > 0 || p.borrowed > 0);
+      if (active.length) {
+        msg += `\n\n*People:*`;
+        for (const p of active) {
+          if (p.netToYou > 0) msg += `\n• ${p.name} owes you ${fmt(p.netToYou)}`;
+          else if (p.netToYou < 0) msg += `\n• You owe ${p.name} ${fmt(-p.netToYou)}`;
+        }
+      }
+      await this.bot.sendMessage(chatId, msg, { parse_mode: 'Markdown' });
+      return;
+    }
+
+    const name = this.cleanCounterparty(intent.name);
+    if (!name) {
+      await this.bot.sendMessage(chatId, `Who is this loan with? Try: "Lent 5000 to Ravi".`);
+      return;
+    }
+
+    if (intent.kind === 'create') {
+      await this.loansService.createLoan({
+        telegramUserId: userId,
+        direction: intent.direction,
+        counterpartyName: name,
+        principal: intent.amount,
+        rawMessage: rawText,
+      });
+      if (intent.direction === 'lent') {
+        await this.bot.sendMessage(chatId, `🤝 Logged — you *lent ${fmt(intent.amount)}* to ${name}.\nThey owe you ${fmt(intent.amount)}.\n\nWhen they repay, say "${name} paid back 500".`, { parse_mode: 'Markdown' });
+      } else {
+        await this.bot.sendMessage(chatId, `🤝 Logged — you *borrowed ${fmt(intent.amount)}* from ${name}.\nYou owe ${fmt(intent.amount)}.\n\nWhen you repay, say "paid back 500 to ${name}".`, { parse_mode: 'Markdown' });
+      }
+      return;
+    }
+
+    // repay
+    const res = await this.loansService.applyRepayment(userId, name, intent.direction, intent.amount);
+    if (!res.matched) {
+      const hint = intent.direction === 'lent' ? `lent 1000 to ${name}` : `borrowed 1000 from ${name}`;
+      await this.bot.sendMessage(chatId, `🤔 I couldn't find an active loan ${intent.direction === 'lent' ? `you lent to ${name}` : `you borrowed from ${name}`}.\n\nLog it first: "${hint}".`);
+      return;
+    }
+    let msg = intent.direction === 'lent'
+      ? `✅ ${res.counterpartyName} repaid ${fmt(res.applied)}.`
+      : `✅ You repaid ${fmt(res.applied)} to ${res.counterpartyName}.`;
+    if (res.closed > 0) msg += `\n🎉 ${res.closed} loan${res.closed > 1 ? 's' : ''} fully settled!`;
+    if (res.leftover > 0) msg += `\n(${fmt(res.leftover)} was more than owed — not applied.)`;
+    await this.bot.sendMessage(chatId, msg);
+  }
+
   onModuleInit() {
     const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN')!;
     const webhookUrl = this.configService.get<string>('TELEGRAM_WEBHOOK_URL');
@@ -283,7 +412,7 @@ export class TelegramService implements OnModuleInit {
       if (text.startsWith('/')) {
         if (text === '/start') {
           await this.bot.sendMessage(chatId,
-            `👋 Welcome to RupeePilot!\n\nJust send me a message like:\n• "Spent 450 at Zomato"\n• "Paid 1200 electricity"\n\n📊 *For investments:*\n• "SIP 5000"\n• "Invested 10000 in Zerodha"\n• "Bought Tata Motors shares"\n\nTo connect your web dashboard, click "Link Telegram" there and type the code here.`,
+            `👋 Welcome to RupeePilot!\n\nJust send me a message like:\n• "Spent 450 at Zomato"\n• "Paid 1200 electricity"\n\n📊 *For investments:*\n• "SIP 5000"\n• "Invested 10000 in Zerodha"\n• "Bought Tata Motors shares"\n\n🤝 *For loans:*\n• "Lent 5000 to Ravi"\n• "Borrowed 2000 from Kumar"\n• "Ravi paid back 500"\n• "Who owes me?"\n\nTo connect your web dashboard, click "Link Telegram" there and type the code here.`,
             { parse_mode: 'Markdown' });
         }
         if (text.startsWith('/link ')) {
@@ -303,6 +432,15 @@ export class TelegramService implements OnModuleInit {
         const state = await this.usersService.getPendingState(userId);
         if (state) {
           await this.handleInvestmentFlow(chatId, userId, text, state);
+          return;
+        }
+      }
+
+      // ── Loans / debts: lend, borrow, repay, or "who owes me" ──
+      if (userId) {
+        const loanIntent = this.parseLoanIntent(text);
+        if (loanIntent) {
+          await this.handleLoanIntent(chatId, userId, loanIntent, text);
           return;
         }
       }

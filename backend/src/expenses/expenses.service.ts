@@ -56,10 +56,13 @@ export class ExpensesService {
   async getWeekSummary(telegramUserId: number, salaryDate: number = 1) {
     const now = new Date();
 
-    // Find the most recent Sunday (start of this week Sun–Sat)
+    // Week runs Monday–Sunday. The report is sent Sunday evening, so "this week"
+    // must cover the week that's wrapping up. A Sunday-based start would reset at
+    // Sunday 00:00 and wrongly report the just-started week as empty.
     const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon ... 6=Sat
+    const daysSinceMonday = (dayOfWeek + 6) % 7; // Mon=0, Tue=1 ... Sun=6
     const startOfThisWeek = new Date(now);
-    startOfThisWeek.setDate(now.getDate() - dayOfWeek);
+    startOfThisWeek.setDate(now.getDate() - daysSinceMonday);
     startOfThisWeek.setHours(0, 0, 0, 0);
 
     const startOfLastWeek = new Date(startOfThisWeek);

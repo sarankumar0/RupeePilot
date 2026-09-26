@@ -15,6 +15,7 @@ interface Props {
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: '📊' },
   { href: '/investments', label: 'Investments', icon: '📈' },
+  { href: '/loans', label: 'Loans', icon: '🤝' },
 ];
 
 export default function Sidebar({ userName, userEmail, userAvatar }: Props) {

@@ -7,6 +7,7 @@ import { ExpensesModule } from './expenses/expenses.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { UsersModule } from './users/users.module';
 import { InvestmentsModule } from './investments/investments.module';
+import { LoansModule } from './loans/loans.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { InvestmentsModule } from './investments/investments.module';
     TelegramModule,
     UsersModule,
     InvestmentsModule,
+    LoansModule,
   ],
   controllers: [AppController],
   providers: [AppService],
