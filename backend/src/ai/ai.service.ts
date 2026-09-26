@@ -124,7 +124,7 @@ Return ONLY a valid JSON object, nothing else:
 `;
 
     const response = await this.groq.chat.completions.create({
-      model: 'llama-3.1-8b-instant',
+      model: 'openai/gpt-oss-20b',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.1,
     });
@@ -159,7 +159,7 @@ Examples:
 Return only the tip sentence, nothing else.`;
 
     const response = await this.groq.chat.completions.create({
-      model: 'llama-3.1-8b-instant',
+      model: 'openai/gpt-oss-20b',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
     });
